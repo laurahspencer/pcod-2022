@@ -1,0 +1,15 @@
+"0","# Add GO terms to Uniprot annotation object
+gadMor.blast.GO <- left_join(gadMor.blast, read_delim(file = ""../references/gadMor_genes_GO.tsv"", 
+                                                      delim = ""\t"") %>% clean_names(),
+                             by = c(""spid""=""entry"")) %>% ungroup()
+"
+"1","[1mRows: [22m[34m14207[39m [1mColumns: [22m[34m12[39m
+"
+"1","[36m--[39m [1mColumn specification[22m [36m----------------------------------------------------------------------------------------------------------------------------------------------------[39m
+[1mDelimiter:[22m ""\t""
+[31mchr[39m (12): From, Entry, Reviewed, Entry Name, Protein names, Gene Names, Organism, Gene Ontology (biological process), Gene Ontology (GO), Gene Ontology (cellular compon...
+"
+"1","
+[36mi[39m Use `spec()` to retrieve the full column specification for this data.
+[36mi[39m Specify the column types or set `show_col_types = FALSE` to quiet this message.
+"

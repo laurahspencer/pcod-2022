@@ -1,0 +1,3 @@
+"0","legend(""topright"", title = ""Treatment"", bty=""n"", legend ="
+"0","         c(""3_amb"",""3_low"",""6_amb"",""6_low"",""10_amb"", ""10_low""), "
+"0","       fill = c(""navyblue"",""royalblue1"",""darkgreen"",""yellow3"",""firebrick4"",""sienna2""))"

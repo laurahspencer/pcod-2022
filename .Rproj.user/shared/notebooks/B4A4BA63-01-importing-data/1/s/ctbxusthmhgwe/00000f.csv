@@ -1,0 +1,1 @@
+"0","# counts <- counts[-which(rownames(counts) %in% outliers),]"

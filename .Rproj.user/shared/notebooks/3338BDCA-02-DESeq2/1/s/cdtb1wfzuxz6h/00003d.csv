@@ -1,0 +1,2 @@
+"0","# PCA.data.treatment <- plotPCA(vsd.treatment, intgroup=c(""treatment""), returnData=TRUE)"
+"0","# save(PCA.data.treatment, file=""../results/PCA.data.treatment"")"

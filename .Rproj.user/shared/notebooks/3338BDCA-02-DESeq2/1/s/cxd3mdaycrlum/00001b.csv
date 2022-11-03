@@ -1,0 +1,9 @@
+"0","print(paste(""DEGs, "", names(degs[9])))
+"
+"1","[1]"
+"1"," ""DEGs,  6 vs. 10C @Low pH"""
+"1","
+"
+"0","degs[9] %>% as.data.frame() %>% rownames_to_column(""gene_gadmor"") %>%"
+"0","  left_join(gadMor.blast.GO %>% dplyr::select(gene_gadmor, gene_ontology_i_ds, spid, protein_names), by = ""gene_gadmor"") %>%"
+"0","  dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector() %>% write_clip()"

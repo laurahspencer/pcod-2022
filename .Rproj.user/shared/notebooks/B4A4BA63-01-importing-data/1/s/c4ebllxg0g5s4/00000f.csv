@@ -1,0 +1,2 @@
+"0","#str(counts) #columns #1-#5 contain extraneous gene info (chr, start, end, strand, length). "
+"0","counts.t <- as.data.frame(t(counts)) #remove extraneous columns, transform data to have each sample a row, each column a gene"

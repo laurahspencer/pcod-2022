@@ -1,0 +1,5 @@
+"0","all(rownames(counts.tk) == counts.tk[-1:-5] %>% t() %>% colnames()) #check that rownames of untransformed matrix match column names of transformed matrix. Should print 'TRUE' "
+"1","[1]"
+"1"," TRUE"
+"1","
+"

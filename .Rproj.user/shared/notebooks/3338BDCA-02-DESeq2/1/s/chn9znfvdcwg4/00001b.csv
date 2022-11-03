@@ -1,0 +1,7 @@
+"0","# IMPORTANT NOTE: to use data for ALL genes, use object ""counts.t"". To remove low-frequency genes, use object ""counts.ts"" "
+"0",""
+"0","# merge count data with sample key, reset row names as sample names, and arrange by infection, then temperature, then day "
+"0","counts.tk <- merge(x=sample.info[,c(""vial_label"", ""temperature"", ""ph"", ""treatment"", ""tank"", ""treatment_tank"")], by.x=""vial_label"", y=counts.ts, by.y=""row.names"") %>% "
+"0","  arrange(treatment, tank)  %>% column_to_rownames(var=""vial_label"") %>% droplevels()"
+"0",""
+"0","head(counts.tk[1:24]) #check out results of merge/arrange"

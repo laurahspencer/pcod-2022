@@ -1,0 +1,8 @@
+"0","# # Effect of treatment "
+"0","# vsd.t <- t(assay(vsd.treatment)) %>% as.data.frame()"
+"0","# perm <- adonis(vsd.t ~ treatment, data=sample.info %>% remove_rownames() %>% column_to_rownames(""vial_label""), permutations = 1000, method=""bray"")"
+"0","# "
+"0","# # Pairwise comparisons "
+"0","# vsd.t <- sample.info %>% dplyr::select(Sample, Treatment, Tank) %>% left_join(t(assay(vsd.pH)) %>% as.data.frame() %>% rownames_to_column(""Sample""))"
+"0","# pairwise.adonis(vsd.t[,-1:-3], vsd.t$Treatment, perm = 1000)"
+"0",""

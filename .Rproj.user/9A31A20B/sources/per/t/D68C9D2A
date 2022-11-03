@@ -1,0 +1,27 @@
+{
+    "id": "D68C9D2A",
+    "path": "~/pcod-2022/notebooks/02-DESeq2.Rmd",
+    "project_path": "notebooks/02-DESeq2.Rmd",
+    "type": "r_markdown",
+    "hash": "179713481",
+    "contents": "",
+    "dirty": false,
+    "created": 1666735685176.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "41,29",
+        "scrollLine": "23",
+        "disableDependencyDiscovery": "1"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1666803594,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1666803594964,
+    "read_only": false,
+    "read_only_alternatives": []
+}

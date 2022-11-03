@@ -1,0 +1,99 @@
+"0","print(""Comparison: 3C vs. 6C, low pH"")"
+"1","[1]"
+"1"," ""Comparison: 3C vs. 6C, low pH"""
+"1","
+"
+"0","summary(res.temp.3.6.low <- results(dds.DESeq.treatment, contrast=c(""treatment"", ""3_low"", ""6_low""), alpha=0.05))"
+"1","
+"
+"1","out of 20968 with nonzero total read count
+"
+"1","adjusted p-value < 0.05
+"
+"1","LFC > 0 (up)       : 3839, 18%
+"
+"1","LFC < 0 (down)     : 3886, 19%
+"
+"1","outliers [1]       : 0, 0%
+"
+"1","low counts [2]     : 0, 0%
+"
+"1","(mean count < 4)
+"
+"1","[1] see 'cooksCutoff' argument of ?results
+"
+"1","[2] see 'independentFiltering' argument of ?results
+"
+"1","
+"
+"0","paste(""No. of genes differentially expressed (padj<0.05) between 6C & 10C, low pH:"",  sum(res.temp.3.6.low$padj < 0.05, na.rm=TRUE))"
+"1","[1]"
+"1"," ""No. of genes differentially expressed (padj<0.05) between 6C & 10C, low pH: 7725"""
+"1","
+"
+"0","print(""Comparison: 3C vs. 10C, low pH"")"
+"1","[1]"
+"1"," ""Comparison: 3C vs. 10C, low pH"""
+"1","
+"
+"0","summary(res.temp.3.10.low <- results(dds.DESeq.treatment, contrast=c(""treatment"", ""3_low"", ""10_low""), alpha=0.05))"
+"1","
+"
+"1","out of 20968 with nonzero total read count
+"
+"1","adjusted p-value < 0.05
+"
+"1","LFC > 0 (up)       : 4582, 22%
+"
+"1","LFC < 0 (down)     : 4566, 22%
+"
+"1","outliers [1]       : 0, 0%
+"
+"1","low counts [2]     : 0, 0%
+"
+"1","(mean count < 4)
+"
+"1","[1] see 'cooksCutoff' argument of ?results
+"
+"1","[2] see 'independentFiltering' argument of ?results
+"
+"1","
+"
+"0","paste(""No. of genes differentially expressed (padj<0.05) between 3C & 10C, low pH:"",  sum(res.temp.3.10.low$padj < 0.05, na.rm=TRUE))"
+"1","[1]"
+"1"," ""No. of genes differentially expressed (padj<0.05) between 3C & 10C, low pH: 9148"""
+"1","
+"
+"0","print(""Comparison: 6C vs. 10C, low pH"")"
+"1","[1]"
+"1"," ""Comparison: 6C vs. 10C, low pH"""
+"1","
+"
+"0","summary(res.temp.6.10.low <- results(dds.DESeq.treatment, contrast=c(""treatment"", ""6_low"", ""10_low""), alpha=0.05))"
+"1","
+"
+"1","out of 20968 with nonzero total read count
+"
+"1","adjusted p-value < 0.05
+"
+"1","LFC > 0 (up)       : 1278, 6.1%
+"
+"1","LFC < 0 (down)     : 969, 4.6%
+"
+"1","outliers [1]       : 0, 0%
+"
+"1","low counts [2]     : 0, 0%
+"
+"1","(mean count < 4)
+"
+"1","[1] see 'cooksCutoff' argument of ?results
+"
+"1","[2] see 'independentFiltering' argument of ?results
+"
+"1","
+"
+"0","paste(""No. of genes differentially expressed (padj<0.05) between 6C & 10C, low pH:"",  sum(res.temp.6.10.low$padj < 0.05, na.rm=TRUE))"
+"1","[1]"
+"1"," ""No. of genes differentially expressed (padj<0.05) between 6C & 10C, low pH: 2247"""
+"1","
+"

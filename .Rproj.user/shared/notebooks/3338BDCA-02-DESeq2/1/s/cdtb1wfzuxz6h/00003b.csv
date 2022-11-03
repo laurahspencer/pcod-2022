@@ -1,0 +1,9 @@
+"0","# PCA with points color coded by tank "
+"0","ggplotly("
+"0","  plotPCA(vsd.tank, intgroup=""tank"") + "
+"0","           ggtitle(""PCA by Tank (var-stabilizing transformed)"") + "
+"0","    geom_point(size=3, aes(text=colnames(vsd.tank))) + "
+"0","   theme_minimal(), tooltip = ""text"")"
+"2","Warning:"
+"2"," Ignoring unknown aesthetics: text
+"

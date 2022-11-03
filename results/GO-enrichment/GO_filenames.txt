@@ -1,0 +1,8 @@
+GO-enrich_3Cvs6C-Amb-pH.txt	3Cvs6C-Amb-pH
+GO-enrich_3Cvs6C-Low-pH.txt	3Cvs6C-Low-pH
+GO-enrich_3Cvs10C-Amb-pH.txt	3Cvs10C-Amb-pH
+GO-enrich_3Cvs10C-Low-pH.txt	3Cvs10C-Low-pH
+GO-enrich_6Cvs10C-Amb-pH.txt	6Cvs10C-Amb-pH
+GO-enrich_6Cvs10C-Low-pH.txt	6Cvs10C-Low-pH
+GO-enrich_Amb-vs-Low-6C.txt	Amb-vs-Low-6C
+GO-enrich_Amb-vs-Low-10C.txt	Amb-vs-Low-10C

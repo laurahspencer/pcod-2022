@@ -1,0 +1,7 @@
+"0","# # Counts before filtering "
+"0","# sample.info %>% select(Sample, Treatment) %>% left_join(counts.t %>% rownames_to_column(""Sample"")) %>% "
+"0","#   group_by(Treatment) %>% summarise_if(is.numeric, ""mean"") %>% mutate(genes=rowSums(select_if(., is.numeric)>10)) %>% select(Treatment, genes)"
+"0",""
+"0","# # Counts after filtering"
+"0","# sample.info %>% select(Sample, Treatment) %>% left_join(counts.tk %>% rownames_to_column(""Sample"")) %>% "
+"0","#   select(-Sample, -Tank, -Treatment_Tank) %>% group_by(Treatment) %>% summarise_all(""mean"") %>% mutate(genes=rowSums(is.numeric(.)>10)) %>% select(Treatment, genes)"

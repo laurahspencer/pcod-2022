@@ -1,0 +1,23 @@
+"0","read_delim(file = ""../references/genomic.gff"", delim = ""\t"", col_names = F, skip = 8) %>% 
+  mutate(X3=as.factor(X3)) %>% filter(X3==""gene"") %>%
+  select(X1, X4, X5, X9) %>%
+  mutate(X4=X4-1) %>% #convert from 1-based to 0-based by subtracting 1 from the start position 
+  mutate(X9=str_remove(X9, ""ID="")) %>%
+  select(X1,X4,X5,X9) %>%
+  write.table(., ""../references/gadMor3.0_genes.bed"", sep = ""\t"",
+              col.names = F, row.names = F, quote = F)
+"
+"2","Warning:"
+"2"," One or more parsing issues, see `problems()` for details
+"
+"1","[1mRows: [22m[34m1354534[39m [1mColumns: [22m[34m9[39m
+"
+"1","[36m──[39m [1mColumn specification[22m [36m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m
+[1mDelimiter:[22m ""\t""
+[31mchr[39m (7): X1, X2, X3, X6, X7, X8, X9
+[32mdbl[39m (2): X4, X5
+"
+"1","
+[36mℹ[39m Use `spec()` to retrieve the full column specification for this data.
+[36mℹ[39m Specify the column types or set `show_col_types = FALSE` to quiet this message.
+"

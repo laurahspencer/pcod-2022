@@ -1,0 +1,8 @@
+"0","pheatmap(data.matrix(counts.tk[-1:-5]), Rowv=NA, Colv=NA, na.rm = TRUE, xlab = NA, "
+"0","                     show_colnames =FALSE, cluster_cols = FALSE, cluster_rows = TRUE,"
+"0","                  annotation_colors = list(treatment="
+"0","          c(`3_amb`= ""navyblue"", `3_low`=""royalblue1"","
+"0","            `6_amb`=""darkgreen"", `6_low`=""yellow3"","
+"0","            `10_amb`=""firebrick4"", `10_low`=""sienna2"")),"
+"0","         scale=""column"", #color=c(""dodgerblue3"", ""goldenrod1""), "
+"0","         main = ""gene counts - not transformed"", annotation_row=counts.tk[,c(""treatment""), drop=FALSE])"

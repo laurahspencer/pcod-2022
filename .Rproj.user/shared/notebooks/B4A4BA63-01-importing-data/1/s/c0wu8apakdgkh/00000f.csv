@@ -1,0 +1,2 @@
+"0","# counts <- counts %>% separate(Chr, into = c(""X"", ""Y"", ""scaffold""), sep = ""_"", remove = F) %>%"
+"0","#   mutate(scaffold=as.integer(scaffold)) %>% filter(scaffold<=104) %>% dplyr::select(-X, -Y, -scaffold)"
