@@ -5,3 +5,4 @@ gadMor3.0_genes_blastx.tab
 *.gz
 *.fastq
 *.fq
+.RData
