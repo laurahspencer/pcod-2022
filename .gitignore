@@ -6,3 +6,4 @@ gadMor3.0_genes_blastx.tab
 *.fastq
 *.fq
 .RData
+.Rproj.user
