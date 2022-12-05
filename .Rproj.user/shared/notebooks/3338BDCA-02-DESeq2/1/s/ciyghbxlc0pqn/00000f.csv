@@ -1,3 +1,6 @@
+"0","#### How many unique genes were measured per treatment. This takes the mean of each gene by group, and counts up those that have mean >10. "
+"0",""
+"0","#Warning: this takes forever "
 "0","# # Counts before filtering "
 "0","# sample.info %>% select(Sample, Treatment) %>% left_join(counts.t %>% rownames_to_column(""Sample"")) %>% "
 "0","#   group_by(Treatment) %>% summarise_if(is.numeric, ""mean"") %>% mutate(genes=rowSums(select_if(., is.numeric)>10)) %>% select(Treatment, genes)"

@@ -1,9 +1,8 @@
-"0","right_join(
-  gadMor.blast %>% ungroup() %>% dplyr::select(gene_gadmor, spid, gene_uni, species, pident, evalue),
-  counts.ts %>% t() %>% as.data.frame() %>% rownames_to_column(var = ""gene_gadmor""), ""gene_gadmor"") %>% filter(!is.na(spid)) %>%
-  nrow()
-"
+"0","right_join("
+"0","  gadMor.blast %>% ungroup() %>% dplyr::select(gene_gadmor, spid, gene_uni, species, pident, evalue),"
+"0","  counts.ts %>% t() %>% as.data.frame() %>% rownames_to_column(var = ""gene_gadmor""), ""gene_gadmor"") %>% filter(!is.na(spid)) %>%"
+"0","  nrow()"
 "1","[1]"
-"1"," 17150"
+"1"," 17196"
 "1","
 "

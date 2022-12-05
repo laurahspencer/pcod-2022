@@ -1,3 +1,5 @@
+"0","#### Generate dataframe with prcomp results "
+"0",""
 "0","tab.expr <- data.frame(sample.id = colnames(assay(vsd.treatment)),"
 "0","    EV1.all = pca.princomp$x[,1],    # the first eigenvector"
 "0","    EV2.all = pca.princomp$x[,2],    # the second eigenvector"

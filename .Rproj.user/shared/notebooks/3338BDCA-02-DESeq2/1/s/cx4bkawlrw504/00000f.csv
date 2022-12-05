@@ -1,3 +1,7 @@
+"0","### perMANOVA - multivariate analysis of variance "
+"0",""
+"0","#### _not working, probably b/c it's a 2-way design_ "
+"0",""
 "0","# # Effect of treatment "
 "0","# vsd.t <- t(assay(vsd.treatment)) %>% as.data.frame()"
 "0","# perm <- adonis(vsd.t ~ treatment, data=sample.info %>% remove_rownames() %>% column_to_rownames(""vial_label""), permutations = 1000, method=""bray"")"

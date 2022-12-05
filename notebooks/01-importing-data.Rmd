@@ -29,16 +29,16 @@ getwd()
 list.of.packages <- c("RCurl", "tidyverse", "vegan", "pheatmap", "pastecs", "factoextra", "FactoMineR", "RColorBrewer", "tibble", "reshape2", "plotly", "corrplot", "PerformanceAnalytics", "cowplot", "here", "janitor", "clipr", "googlesheets4")
 # Add all libraries that are installed using BiocManager here
 bioconductor.packages <- c("DESeq2", "WGCNA")
-# 
-# # Install BiocManager if needed
-# if(!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-# 
-# # Get names of all required packages that aren't installed
-# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
-# new.bioc.packages <- bioconductor.packages[!(bioconductor.packages %in% installed.packages()[, "Package"])]
-# # Install all new packages
-# if(length(new.packages)) install.packages(new.packages)
-# if(length(new.bioc.packages)) BiocManager::install(new.bioc.packages)
+
+# Install BiocManager if needed
+if(!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+
+# Get names of all required packages that aren't installed
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
+new.bioc.packages <- bioconductor.packages[!(bioconductor.packages %in% installed.packages()[, "Package"])]
+# Install all new packages
+if(length(new.packages)) install.packages(new.packages)
+if(length(new.bioc.packages)) BiocManager::install(new.bioc.packages)
 
 # Load all required libraries
 all.packages <- c(list.of.packages, bioconductor.packages)
@@ -89,10 +89,12 @@ save(sample.info, file="../data/sample.info")
 
 ### Import count data
 
-#### Generate tab-separated file that lists file names 
+#### Import data generated directly using the  STAR aligner step 
+
+#### Generate tab-separated file that lists file names
 
 ```{bash}
-rm ../results/star/countsfilenames.txt #rm file if it already exists 
+rm ../results/star/countsfilenames.txt #rm file if it already exists
 for file in ../results/star/*.ReadsPerGene.out.tab
 do
 filename="$(echo $file)"
@@ -101,7 +103,7 @@ printf "%s\t%s\n" "$filename" "$sample" >> ../results/star/countsfilenames.txt
 done
 ```
 
-#### Confirm filenamems look good 
+#### Confirm filenamems look good
 
 ```{bash}
 head ../results/star/countsfilenames.txt
@@ -109,10 +111,10 @@ wc -l ../results/star/countsfilenames.txt
 ```
 
 ```{r}
-# Using STAR aligned and STAR quantified counts 
+# Using STAR aligned and STAR quantified counts
 filenames <- read_delim(file="../results/star/countsfilenames.txt", col_names = c("filename", "sample"), delim = "\t")
-files <- file.path(filenames$filename) #extract vector of filenames 
-all(file.exists(files)) #easy code to check that all files exist! 
+files <- file.path(filenames$filename) #extract vector of filenames
+all(file.exists(files)) #easy code to check that all files exist!
 
 file_list <- vector(mode = "list", length = nrow(filenames))
 names(file_list) <- c(filenames$sample)
@@ -124,8 +126,27 @@ for (i in 1:nrow(filenames)) {
     print(paste("Total GENES,", names(file_list[[i]][2]), ":", prettyNum(nrow(file_list[[i]] %>% filter(.[[2]] != 0)), big.mark=","), sep=" "))
 }
 
-(counts <- file_list %>% purrr::reduce(full_join, by = "gene") %>% column_to_rownames(var="gene"))
+(counts.star <- file_list %>% purrr::reduce(full_join, by = "gene") %>% column_to_rownames(var="gene"))
 ```
+
+### Import counts generated using featurecounts from star alignments
+
+```{r}
+counts.fc <- data.frame(read.table("../results/star/featurecounts/featurecounts_gene", header = T, stringsAsFactors = F, fill = FALSE)) %>%
+  column_to_rownames(var="Geneid")
+counts.fc <- counts.fc %>% rename_all(~as.character(str_sub(colnames(counts.fc)) %>%
+                            gsub("X.home.lspencer.pcod.2022.aligned.star.gadmor.", "", .) %>%
+                            gsub(".Aligned.sortedByCoord.out.bam", "", .))) %>% select(-Chr, -Start, -End, -Strand, -Length)
+save(counts.fc, file = "../results/star/featurecounts/counts.fc")
+```
+
+### Decide which source of counts you'd like to use! (NOTE- they both are derived from STAR aligner)
+
+```{r}
+counts <- counts.fc
+#counts <- counts.star
+```
+
 
 ### Summarize counts and visualize (remove last column - that's undetermined counts)
 
@@ -146,7 +167,6 @@ print(paste("Total counts, all samples:", prettyNum(sum(colSums(counts %>% dplyr
 
 ## OPTIONAL: FILTER WHOLE SAMPLES. 
 
-## DECISION FEBRUARY 9TH, 2022: Removing sample "Tank_7_Crab_4", which is an outlier in the PCAs and heat maps 
 Remove whole samples from the data set and sample info here if needed
 
 ```{r}
@@ -174,9 +194,7 @@ After preliminary examination of blast results (by looking at genes, lengths, an
 #   mutate(scaffold=as.integer(scaffold)) %>% filter(scaffold<=104) %>% dplyr::select(-X, -Y, -scaffold)
 ```
 
-### Optional: FILTER GENES THAT ARE OUTLIERS IN OUTLIER SAMPLE (TANK_7_CRAB_4)  
-
-#### DECISION FEBRUARY 9TH, 2022: DO NOT REMOVE INDIVIDUAL GENES, INSTEAD REMOVE OUTLIER SAMPLE (ABOVE)
+### Optional: FILTER GENES THAT ARE OUTLIERS IN OUTLIER SAMPLES- NOT USED AS OF 12/2/2022
 
 The sample Tank 7 Crab 4 is weird, and has outlier counts in many genes. I identified them in my Outlier notebook, so here I will remove them from the count matrix. NOTE: you cannot simply replace counts for some samples with NA. DESeq2 doesn't accept those. 
 
@@ -217,6 +235,22 @@ save(counts, file = "../results/counts")
 save(counts.t, file = "../results/counts.t")
 save(counts.ts, file = "../results/counts.ts")
 ```
+
+### Inspect read distribution before & after filtering
+
+```{r}
+# Plot distribution of unfiltered read counts across all samples 
+ggplotly(ggplot(data = data.frame(rowMeans(counts)),
+       aes(x = rowMeans.counts.)) +
+  geom_histogram(fill = "grey") +
+  xlim(1, 500) +
+  theme_classic() +
+  labs(title = "Distribution of unfiltered reads") +
+  labs(y = "Density", x = "Raw read counts",
+  title = "Read count distribution: untransformed, unnormalized, unfiltered\n(execept to remove 0's)"))
+```
+
+
 
 ### Annotate genes with Uniprot IDs and Gene Ontology info 
 
@@ -281,6 +315,7 @@ gadMor.blast %>% filter(evalue < 1.0e-20) %>% nrow() # 14,253 genes have e-value
 gadMor.blast <- gadMor.blast %>% filter(evalue < 1.0e-10)
 
 save(gadMor.blast, file = "../references/gadMor.blast")
+#load(file = "../references/gadMor.blast")
 ```
 
 ### Annotate with GO terms and other info
@@ -299,6 +334,7 @@ gadMor.blast.GO <- left_join(gadMor.blast, read_delim(file = "../references/gadM
 
 
 save(gadMor.blast.GO, file = "../references/gadMor.blast.GO")
+load(file = "../references/gadMor.blast.GO")
 ```
 
 ### Annotate gene counts dataframe
@@ -314,7 +350,7 @@ save(counts.annot.gadmor, file = "../results/star/counts.annot.gadmor")
 write.csv(counts.annot.gadmor, file = "../results/counts_annotated_gadmor.csv", row.names = F, quote = F)
 ```
 
-#### How many of our analyzed genes are annotated? Answer- 17,150
+#### How many of our analyzed genes are annotated? Answer- 17,196
 
 ```{r}
 right_join(
@@ -327,6 +363,6 @@ right_join(
 
 ```{r}
 read_delim(file = "../references/genomic.gff", delim = "\t", col_names = F, skip = 8) %>% 
-  mutate(X3=as.factor(X3)) %>% filter(X3=="gene") %>% nrow()
+  mutate(X3=as.factor(X3)) %>% filter(X3=="gene")
 ```
 

@@ -1,0 +1,786 @@
+---
+title: "03-edgeR"
+author: "Laura Spencer"
+date: '2022-11-08'
+output: html_document
+---
+
+
+```{r include = FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning = F, message = F)
+```
+
+```{r, message=FALSE, warning=FALSE, results=FALSE}
+#### Load libraries and source scripts 
+
+source("../references/biostats.R")
+
+# Add all required libraries that are installed with install.packages() here
+list.of.packages <- c("RCurl", "tidyverse", "vegan", "pheatmap", "pastecs", "factoextra", "FactoMineR", "RColorBrewer", "tibble", "reshape2", "plotly", "cowplot", "clipr", "janitor", "ggpubr", "forcats", "apeglm", "car", "vsn", "devtools", "grid", "gridGraphics", "Rfast", "dendextend", "RColorBrewer", "scales", "VennDiagram", "ape", "lmtest", "limma")
+
+# Add all libraries that are installed using BiocManager here
+bioconductor.packages <- c("DESeq2", "WGCNA", "edgeR")
+
+# Install BiocManager if needed
+if(!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+
+# Get names of all required packages that aren't installed
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
+new.bioc.packages <- bioconductor.packages[!(bioconductor.packages %in% installed.packages()[, "Package"])]
+# Install all new packages
+if(length(new.packages)) install.packages(new.packages)
+if(length(new.bioc.packages)) BiocManager::install(new.bioc.packages)
+
+# Load all required libraries
+all.packages <- c(list.of.packages, bioconductor.packages)
+lapply(all.packages, FUN = function(X) {
+  do.call("require", list(X))
+})
+
+# Github packages 
+install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
+library(pairwiseAdonis)
+
+```
+
+### Import counts summary from featurecounts
+
+NOTE: looks like a good portion of reads were not included due to multimapping. Need to look into those! 
+
+```{r}
+# Extract sample names for each column from file path 
+samples <- (read_delim(file = "../results/star/featurecounts/featurecounts_gene.summary", col_names = F)[1,-1] %>% as.data.frame() %>% t() %>% as.data.frame() %>%
+                            mutate(V1=gsub("/home/lspencer/pcod-2022/aligned/star-gadmor/", "", V1)) %>%
+                            mutate(V1=gsub(".Aligned.sortedByCoord.out.bam", "", V1)))$V1 %>% as.vector()
+
+# Import count summary from featurecounts
+counts.summary <- read_delim(file = "../results/star/featurecounts/featurecounts_gene.summary", col_names = F, skip=1)  %>% as.data.frame()
+
+# Add sample names to count summary table 
+colnames(counts.summary) <- c("results", samples)
+#ggplotly(
+counts.summary %>% 
+  filter(rowSums(across(where(is.numeric)))!=0) %>%
+pivot_longer(-results, names_to = "sample", values_to = "count") %>%
+  mutate(results=factor(results, ordered = T)) %>%
+  ggplot(aes(x=sample, y=count, fill=results)) + 
+  geom_bar(position="fill", stat="identity") +
+  theme(axis.text.x = element_text(size=6, angle = 90, vjust = 0.5, hjust=1)) +
+  theme(legend.position = "bottom") +
+  guides(fill=guide_legend(nrow=2,byrow=TRUE, title = ""))#)
+
+```
+
+## Load counts
+
+```{r}
+load(file = "../results/star/featurecounts/counts.fc") #raw counts generated from featurecounts
+load(file = "../results/counts")
+load(file = "../results/counts.t")
+load(file = "../results/counts.ts") #counts filtered for low frequency, transposed
+counts.ts
+```
+
+```{r}
+counts.treat <- counts.ts %>% rownames_to_column("sample") %>%
+  left_join(sample.info[c("tank", "temperature", "ph", "vial_label")], by=c("sample"="vial_label")) %>%
+  mutate(treatment=as.factor(paste(ph, temperature, sep="."))) %>%
+  mutate(ph=gsub("amb", "370", ph)) %>% #estimate ambient = pH 8.0 and pco2 370
+  mutate(ph=gsub("low", "950", ph)) %>% #estimate low pH of 7.6 as pco2 900
+  mutate(ph=as.numeric(as.character(ph)),
+         temperature=as.numeric(as.character(temperature)),
+         treatment=factor(treatment, 
+                          levels=c("amb.6", "low.6", "amb.3", "low.3", "amb.10", "low.10"))) %>% 
+  select(sample, tank, temperature, ph, treatment, everything())
+
+counts.edgeR <- counts.treat %>% column_to_rownames("sample") %>%
+  select(-tank, -temperature, -ph, -treatment) %>%
+  t() %>% as.data.frame()
+
+# double check samples (columns) are in the same order as the samples in the annotated count dataframe. Should = TRUE
+all(colnames(counts.edgeR) == counts.treat$sample)
+
+# Extract vectors of treatments
+temperature <- counts.treat$temperature
+temperature_2 <- temperature^2 #square temperature variable, for potential non-linear effects of temp.
+ph <- counts.treat$ph
+tank <- counts.treat$tank
+treatment <- counts.treat$treatment
+```
+
+
+```{r}
+# Create a DGEList object 
+y <- DGEList(counts.edgeR, group=treatment)
+
+#NOTE: counts have already been filtered for low-frequency genes, see "01-Importing-data" notebook
+
+# TMM normalization
+y <- calcNormFactors(y)
+y$samples #check out the normalization factor column 
+
+# check out distribution of normalized, filtered read counts
+
+# Calculate logCPM
+df_log <- cpm(y, log = TRUE, prior.count = 2)
+
+# Plot distribution of filtered logCPM values
+ggplot(data = data.frame(rowMeans(df_log)), 
+       aes(x = rowMeans.df_log.) ) +
+  geom_histogram(fill = "grey", colour="black", bins = 50) +
+  theme_classic() +
+  labs(y = "Density", x = "Filtered read counts (logCPM)",
+       title = "Distribution of normalized, filtered read counts")
+```
+
+The performance of the TMM normalization procedure can be examined using mean-difference (MD) plots. This visualizes the library size-adjusted log-fold change between two libraries (the difference) against the average log-expression across those libraries (the mean). The following MD plot is generated by comparing sample 1 against an artificial library constructed from the average of all other samples. Ideally, the bulk of genes should be centred at a log-fold change of zero. This indicates that any composition bias between libraries has been successfully removed.
+
+```{r}
+for (i in 1:nrow(y$samples)) {
+  plotMD(cpm(y, log=T), column = i)
+  abline(h=0, col="red", lty=2, lwd=2)
+}
+```
+
+MDS plot
+
+```{r}
+points <- c(0,15,1,16,2,17)
+colors <- c("goldenrod1", "goldenrod1", "steelblue1", "steelblue1", "tomato1", "tomato1")
+
+plotMDS(y, col=colors[treatment], pch=points[treatment], cex=1.4)
+legend("topleft", legend=levels(treatment), pch=points, col=colors, ncol=2)
+```
+
+## Another MDS plot option, from [MarineOmics tutorial](https://marineomics.github.io/DGE_comparison_v2.html#Intro_to_multifactorial_RNA-seq_models) 
+
+```{r}
+# Export pcoa loadings
+dds.pcoa = pcoa(vegdist(t(df_log <- cpm(y, log = TRUE, prior.count = 2)),
+                          method = "euclidean") / 1000)
+
+# Create df of MDS vector loading
+scores <- dds.pcoa$vectors
+
+## Plot pcoa loadings of each sample, groouped by time point and pCO2 treatment
+
+# Calculate % variation explained by each eigenvector
+percent <- dds.pcoa$values$Eigenvalues
+cumulative_percent_variance <- (percent / sum( percent)) * 100
+
+# Prepare information for pcoa plot, then plot
+#colors <- c("goldenrod1", "goldenrod1", "steelblue1", "steelblue1", "tomato1", "tomato1")
+
+par(mfrow = c(1, 1))
+plot(
+  scores[, 1],
+  scores[, 2],
+  cex = .5,
+  cex.axis = 1,
+  cex.lab = 1.25,
+  xlab = paste("PC1, ", round(cumulative_percent_variance[1], 2), "%"),
+  ylab = paste("PC2, ", round(cumulative_percent_variance[2], 2), "%")
+  )
+
+# Add visual groupings to pcoa plot
+ordihull(
+  scores,
+  treatment,
+  border = NULL,
+  lty = 2,
+  lwd = .5,
+  label = F,
+  col = colors,
+  draw = "polygon",
+  alpha = 100,
+  cex = .5
+  )
+
+ordispider(scores, treatment, label = F) # Vectors connecting samples in same ph x treatment group
+#ordilabel(scores, cex = 0.4) # Label sample IDs
+```
+
+```{r}
+# Fit multifactorial design matrix
+design <-
+  model.matrix(
+    ~ 1 + temperature_2 + temperature + ph + temperature_2:ph + temperature:ph) # Generate multivariate edgeR glm
+
+#design <- model.matrix(~ 0 + treatment) 
+#colnames(design) <- levels(treatment)
+
+# Check out coefficients 
+head(design)
+```
+
+### Examine non-linear effects of treatments on gene expression
+
+```{r}
+# Estimate dispersion coefficients
+y <- estimateDisp(y, design, robust=TRUE)
+y$common.dispersion
+plotBCV(y)
+```
+
+### Fit quasi-likelihood, neg binom linear regression with multifactorial design matrix
+```{r}
+fit <- glmQLFit(y, design, robust=TRUE)
+head(fit$coefficients)
+#plotQLDisp(fit)
+```
+
+### Test for effects of different treatments 
+
+```{r}
+# effect of temperature^2
+
+# estimate sign. degs 
+nl_temperature_2 <-
+    glmQLFTest(fit,
+    coef = 2,
+    contrast = NULL,
+    poisson.bound = FALSE) # Estimate significant DEGs
+
+# Make contrasts
+DEGs_nl_temperature_2 <-
+  decideTestsDGE(nl_temperature_2, adjust.method = "fdr", p.value = 0.05)
+
+summary(DEGs_nl_temperature_2)
+plotMD(nl_temperature_2, cex=0.6)
+```
+
+```{r}
+# effect of temperature
+
+# estimate sign. degs 
+nl_temperature <-
+    glmQLFTest(fit,
+    coef = 3,
+    contrast = NULL,
+    poisson.bound = FALSE) # Estimate significant DEGs
+
+# Make contrasts
+DEGs_nl_temperature <-
+  decideTestsDGE(nl_temperature, adjust.method = "fdr", p.value = 0.05)
+
+summary(DEGs_nl_temperature)
+plotMD(nl_temperature, cex=0.6)
+```
+
+```{r}
+# effect of low pH relative to ambient pH
+# estimate sign. degs 
+nl_ph <-
+    glmQLFTest(fit,
+    coef = 4,
+    contrast = NULL,
+    poisson.bound = FALSE) # Estimate significant DEGs
+
+DEGs_nl_ph <-
+  decideTestsDGE(nl_ph, adjust.method = "fdr", p.value = 0.05)
+
+summary(DEGs_nl_ph)
+plotMD(nl_ph, cex=0.6)
+```
+```{r}
+# interaction between temperature_2 & pH
+
+# estimate sign. degs 
+nl_interaction_2 <-
+    glmQLFTest(fit,
+    coef = 5,
+    contrast = NULL,
+    poisson.bound = FALSE) # Estimate significant DEGs
+
+DEGs_nl_interaction_2 <-
+  decideTestsDGE(nl_interaction_2, adjust.method = "fdr", p.value = 0.05)
+
+summary(DEGs_nl_interaction_2)
+plotMD(nl_interaction_2, cex=0.6)
+```
+
+```{r}
+# interaction between temperature & pH
+
+# estimate sign. degs 
+nl_interaction <-
+    glmQLFTest(fit,
+    coef = 6,
+    contrast = NULL,
+    poisson.bound = FALSE) # Estimate significant DEGs
+
+DEGs_nl_interaction <-
+  decideTestsDGE(nl_interaction, adjust.method = "fdr", p.value = 0.05)
+
+summary(DEGs_nl_interaction)
+plotMD(nl_interaction, cex=0.6)
+```
+
+Checking to see distribution of residual - does our data fit a negative binomial distribution?
+
+Residuals appear normally distributed!  That's great - our data fit the negative binomial distribution assumed by the GLM. Phew! 
+
+```{r}
+# Output observed
+y_nl <- fit$counts
+
+# Output fitted
+mu_nl <- fit$fitted.values
+
+# Output dispersion or coefficient of variation
+phi_nl <- fit$dispersion
+
+# Calculate denominator
+v_nl <- mu_nl*(1+phi_nl*mu_nl)
+
+# Calculate Pearson residual
+resid.pearson <- (y_nl-mu_nl) / sqrt(v_nl)
+
+# Plot distribution of Pearson residuals
+ggplot(data = melt(as.data.frame(resid.pearson)), aes(x = value)) +
+  geom_histogram(fill = "grey", color="black", bins=50) +
+  xlim(-2.5, 5.0) +
+  theme_classic() +
+  labs(title = "Distribution of negative binomial GLM residuals",
+       x = "Pearson residuals",
+       y = "Density")
+```
+
+
+```{r}
+## Bin genes based on (i) whether they have a significant positive or negative vertex and then (ii) whether they showed significant interactions between beta1 (vertex value) and ph
+
+# Export diff expression data for transcripts with significant DE associated with temperature^2 parameter
+nl_temperature_2_sig <-
+  topTags(
+  nl_temperature_2,
+  n = sum(abs(DEGs_nl_temperature_2)),
+  adjust.method = "BH",
+  p.value = 0.05
+  )
+nl_temperature_2_sig_geneids <- row.names(nl_temperature_2_sig) #Output a list of geneids associated with sig temperature effect
+
+nl_temperature_sig <-
+  topTags(
+  nl_temperature,
+  n = sum(abs(DEGs_nl_temperature)),
+  adjust.method = "BH",
+  p.value = 0.05
+  )
+nl_temperature_sig_geneids <- row.names(nl_temperature_sig) #Output a list of geneids associated with sig temperature effect
+
+nl_ph_sig <-
+  topTags(
+  nl_ph,
+  n = sum(abs(DEGs_nl_ph)),
+  adjust.method = "BH",
+  p.value = 0.05
+  )
+nl_pCO2_sig_geneids <- row.names(nl_pCO2_sig) #Output a list of geneids associated with sig PCO2 effect
+
+# Create tabulated dataframe of mean expression across each temperature level with metadata for transcript ID and ph
+tab_exp_df <- as.data.frame(df_log) %>% rownames_to_column("geneid") %>%
+  pivot_longer(cols = -geneid) %>% 
+  left_join(counts.treat[c("sample", "temperature", "ph")], 
+            by=c("name"="sample")) %>%
+  mutate(temperature_2=temperature^2)
+
+# Create binary variable in df_all_log for significant non-linear expression
+tab_exp_df$temperature_sig <-
+  ifelse(tab_exp_df$geneid %in% nl_temperature_sig_geneids, "Yes", "No")
+tab_exp_df$temperature_2_sig <-
+  ifelse(tab_exp_df$geneid %in% nl_temperature_2_sig_geneids, "Yes", "No")
+tab_exp_df$ph_sig <-
+  ifelse(tab_exp_df$geneid %in% nl_ph_sig, "Yes", "No")
+
+# Create a binary variable related to up or down-regulation
+up_genes <- filter(nl_temperature_sig$table, logFC > 0)
+tab_exp_df$logFC_dir <-
+  ifelse(tab_exp_df$geneid %in% row.names(up_genes), "Up", "Down")
+
+# Add geneid to nl_pCO2_int$coefficients
+nl_interaction$coefficients$geneid <- row.names(nl_interaction$coefficients)
+nl_interaction_2$coefficients$geneid <- row.names(nl_interaction_2$coefficients)
+
+# Estimate average logCPM per gene per timepoint
+tab_exp_avg <- summarySE(
+  measurevar = "value",
+  groupvars = c("temperature",     "ph",       "geneid", 
+                "temperature_sig", "temperature_2_sig", "logFC_dir"),
+  data = tab_exp_df
+  )
+
+# First exploratory plot of non-linear expression grouping by pH (aka pco2) and direction of differential expression
+ggplot(data = filter(tab_exp_avg, temperature_2_sig == "Yes"), 
+       aes(x = temperature, y = value)) +
+  geom_path(
+    alpha = 0.01,
+    size = 0.25,
+    stat = "identity",
+    aes(group = as.factor(geneid))) +
+  scale_x_continuous(breaks=c(3,6,10), labels=c(3,6,10), limits=c(2,11)) +
+  facet_grid(logFC_dir ~ ph) +
+  theme_classic() +
+  theme(strip.background = element_blank()) +
+  labs(y = "Avg logCPM", title = "Non-linear changes in GE output by edgeR")
+```
+
+Determine whether it is more probable that gene's expression is linear or non-linear relative to a continuous predictor. We can calculate this relative probability using a likelihood ratio test (LRT). In the code chunk below, we will fit linear and 2nd order non-linear models to the expression of each gene before applying LRTs to each transcript. 
+
+```{r}
+## Using dlply, fit linear and non-linear models to each gene
+
+# Create temperature^2 variable in df_all_log
+tab_exp_df$temperature_2 <- tab_exp_df$temperature^2
+
+# Fit linear models - should take about 4 minutes
+lms <- dlply(tab_exp_df, c("geneid"), function(df) 
+lm(value ~ temperature + ph + temperature:ph, data = df))
+
+# Fit non-linear models - should take about 2 minutes
+nlms <- dlply(tab_exp_df, c("geneid"), function(df) 
+lm(value ~ temperature + temperature_2 + ph + temperature:ph + temperature_2:ph, data = df))
+
+# Output nlm coefficients into dataframe
+nlms_coeff <- ldply(nlms, coef)
+head(nlms_coeff)
+
+## Apply LRTs to lm's and nlm's for each transcript - should take about 2 minutes
+lrts <- list() # Create list to add LRT results to
+
+for (i in 1:length(lms)) {
+  lrts[[i]] <- lrtest(lms[[i]], nlms[[i]]) # Apply LRTs with for loop
+}
+
+## Filter lrt results for transcripts with significantly higher likelihoods of nl model
+lrt_dfs <- list()
+
+# Turn list of LRT outputs into list of dataframes containing output info
+for (i in 1:length(lrts)) {
+  lrt_dfs[[i]] <- data.frame(lrts[i])
+}
+
+# Create singular dataframe with geneids and model outputs for chi-squared and LRT p-value
+lrt_coeff_df  <- na.omit(bind_rows(lrt_dfs, .id = "column_label")) # na.omit removes first row of each df, which lacks these data
+
+# Add geneid based on element number from original list of LRT outputs
+lrt_coeff_df <- merge(lrt_coeff_df,
+                      data.frame(geneid = names(nlms),
+                      column_label = as.character(seq(length(
+                      nlms
+                      )))),
+                      by = "column_label")
+                      
+# Apply FDR adjustment to LRT p-values before filtering for sig non-linear effects
+lrt_coeff_df$FDR <- p.adjust(lrt_coeff_df$Pr..Chisq., method = "fdr")
+
+# Filter LRT results for sig FDR coeff
+lrt_filt <- filter(lrt_coeff_df, FDR < 0.005)
+
+## Plot sig nl genes according to LRT, grouped by timepoint and direction of beta 1 coefficient
+# Add beta coefficients to logCPM df
+temperature_pos <- filter(nlms_coeff, temperature > 0)
+temperature_2_pos <- filter(nlms_coeff, temperature_2 > 0)
+
+# Bin genes based on positive or negative pCO2 and pCO2^2 betas
+tab_exp_avg$temperature_binom <- ifelse(tab_exp_avg$geneid %in% temperature_pos$geneid, "Positive", "Negative")
+tab_exp_avg$temperature_2_binom <- ifelse(tab_exp_avg$geneid %in% temperature_2_pos$geneid, "Concave", "Convex")
+
+# Filter for how many gene id's with significant likelihood of nl effect in LRT
+LRT_filt_df <- filter(tab_exp_avg, geneid %in% lrt_filt$geneid)
+
+# Plot
+ggplot(data = LRT_filt_df,
+       aes(x = temperature, y = value)) +
+  geom_path(
+    alpha = .25,
+    size = 0.25,
+    stat = "identity",
+    aes(group = as.factor(geneid))
+    ) +
+  facet_grid(temperature_2_binom ~ ph) +
+  #geom_smooth(method = "loess", se = TRUE, span = 1) +
+  theme_classic() +
+  theme(strip.background = element_blank()) +
+  labs(y = "Avg logCPM", title = "Non-linear changes in GE output by LRTs")
+```
+
+```{r}
+nrow(as.data.frame(unique(LRT_filt_df$geneid)))
+```
+```{r}
+# Filter down df for gene id's exhibit temperature significant effect in edgeR and significant likelihood of nl effect in LRT 
+edgeR_LRT_df <- filter(tab_exp_avg, geneid %in% lrt_filt$geneid & temperature_sig == "Yes" |
+                         geneid %in% lrt_filt$geneid & temperature_2_sig == "Yes")
+
+# Plot 
+ggplot(data = edgeR_LRT_df, 
+       aes(x = temperature, y = value)) +
+  geom_path(
+    alpha = .25,
+    size = 0.25,
+    stat = "identity",
+    aes(group = as.factor(geneid))
+    ) +
+  facet_grid(temperature_2_binom~ph) +
+  geom_smooth(method = "loess", se = TRUE, span = 1) +
+  theme_classic() +
+  theme(strip.background = element_blank()) +
+  labs(y = "Avg logCPM", title = "Non-linear changes in GE output by edgeR & LRTs")
+```
+```{r}
+# Count how many gene id's exhibit pCO2 significant effect in edgeR and significant likelihood of nl effect in LRT... 345 genes
+nrow(as.data.frame(unique(edgeR_LRT_df$geneid)))
+```
+```{r}
+# Export diff expression data for genes with significant DE associated with interaction between PCO2^2 and time
+nl_interaction_2_sig <- topTags(nl_interaction_2, n = sum(abs(DEGs_nl_interaction_2)), adjust.method = "BH",p.value = 0.05)
+nl_interaction_2_sig_geneids <- row.names(nl_interaction_2_sig) #Output a list of geneids associated with sig temperature^2 x time interaction
+
+# Filter down df for gene id's exhibit temperature significant effect in edgeR and significant likelihood of nl effect in LRT 
+edgeR_interaction_2_df <- filter(tab_exp_avg, geneid %in% nl_interaction_2_sig_geneids )
+edgeR_interaction_2_df$gene_id_ph <- paste(edgeR_interaction_2_df$geneid,
+                                           edgeR_interaction_2_df$ph,
+                                           sep = "_")
+
+# Average logCPM across different groups according to temperature^2 estimate and ph
+edgeR_interaction_avg <- summarySE(measurevar = "value",
+                                   groupvars = c("ph", "temperature", "temperature_2_binom"),
+                                                 data = edgeR_interaction_2_df)
+
+# Plot 
+ggplot(data = edgeR_interaction_avg, 
+       aes(
+         x = temperature,
+         y = value,
+         color = as.factor(ph),
+         group = as.factor(ph)
+         )) +
+         geom_path(stat = "identity") +
+  geom_errorbar(aes(ymin = value - se, ymax = value + se), width = 0) +
+  geom_point() +
+  facet_wrap(~temperature_2_binom) +
+  theme_classic() +
+  theme(strip.background = element_blank()) +
+  labs(y = "logCPM", color = "pCO2 treatment", 
+       title = "Interactions between temperature^2 and pCO2 treatment") +
+  scale_color_manual(values=c("blue", "red"))
+```
+
+```{r}
+# How many genes are represented by the above figure?
+edgeR_interaction_2_df %>% distinct(geneid) %>% nrow()
+```
+
+### Interactive effects: edgeR
+
+edgeR and Voom both take the same syntax for interactive effects, which we define below using the model.matrix() function as ‘design_multi <- model.matrix( ~1 + temperature + temperature:ph )’. Then, we will use this multifactorial model design in both edgeR and Voom as specified below:
+
+```{r}
+# Fit multifactoria design matrix that includes an interaction term for pCO2 x day
+design_multi <-
+  model.matrix(~ 1 + temperature + temperature:ph) #Generate multivariate edgeR glm
+  
+# Fit quasi-likelihood, neg binom linear regression
+multi_fit <-
+  glmQLFit(y, design_multi) # Fit multivariate model to counts
+  
+# Test for effect of temperature
+tr_temperature <-
+  glmQLFTest(
+  multi_fit,
+  coef = 2,
+  contrast = NULL,
+  poisson.bound = FALSE
+  ) # Estimate significant DEGs
+  
+is.de_tr_temperature <-
+  decideTestsDGE(tr_temperature, adjust.method = "fdr", p.value = 0.05) # Make contrasts
+  
+summary(is.de_tr_temperature)
+```
+
+```{r}
+# Test for interaction between pCO2 and time
+tr_int <-
+  glmQLFTest(multi_fit, coef = 3, poisson.bound = FALSE) # Estimate significant DEGs
+  
+is.de_int <-
+  decideTestsDGE(tr_int, adjust.method = "fdr", p.value = 0.05) # Make contrasts
+  
+summary(is.de_int)
+```
+
+### Interactive effects: limma-Voom
+
+```{r}
+# Perform Voom transformation
+Voom <- voom(y, design_multi, plot = T)
+
+# Fit using Voom
+lm_Voom_fit <- lmFit(Voom, design_multi)
+
+# Create a contrast across continuous pCO2 variable
+cont_temperature <- contrasts.fit(lm_Voom_fit, coef = "temperature")
+
+# Create a contrast across interaction etween continuous temperature and time variables
+cont_temperature_ph <- contrasts.fit(lm_Voom_fit, coef = "temperature:ph")
+
+# Perform empirical Bayes smoothing of standard errors
+cont_temperature <- eBayes(cont_temperature)
+cont_temperature_ph <- eBayes(cont_temperature_ph)
+
+# Output test statistics
+temperature_results <-
+  topTable(cont_temperature,
+  coef = "temperature",
+  adjust.method = "fdr",
+  n = Inf)
+temperature_ph_results <-
+  topTable(cont_temperature_ph,
+  coef = "temperature:ph",
+  adjust.method = "fdr",
+  n = Inf)
+
+# How many DEGs are associated with temperature
+length(which(temperature_results$adj.P.Val < 0.05))
+
+# How many DEGs are associated with temperature:ph?
+length(which(temperature_ph_results$adj.P.Val < 0.05))
+```
+### Interactive effects: DESeq2
+
+```{r}
+# merge count data with sample key, reset row names as sample names, and arrange by infection, then temperature, then day 
+counts.tk <- merge(x=sample.info[,c("vial_label", "temperature", "ph", "treatment", "tank", "treatment_tank")], by.x="vial_label", y=counts.ts, by.y="row.names") %>% 
+  arrange(treatment, tank)  %>% column_to_rownames(var="vial_label") %>% droplevels()
+
+### WALD TEST - FULL MODEL ###
+dds <- DESeqDataSetFromMatrix(countData = counts.treat[-2:-5] %>% column_to_rownames("sample") %>% t(),
+                       colData = counts.treat[,c("sample", "temperature", "ph"), drop=FALSE] %>%
+                                             column_to_rownames("sample"), 
+                       design = formula( ~ 1 + temperature + ph + ph:temperature))
+
+
+rld <- rlog(dds)
+rld.df <- assay(rld)
+
+# Wald test for temperature:ph
+dds_int <- DESeq(dds, minReplicatesForReplace = Inf)
+
+design <- design(dds_int)
+
+DESeq2_int_result_names <- resultsNames(dds_int)
+
+# Count DEGs due to interaction
+DESeq2_int_results <- results(dds_int, name = "temperature.ph", lfcThreshold = 0, alpha = 0.05)
+DESeq2_int_results <- results(dds_int, name = "temperature", lfcThreshold = 0, alpha = 0.05)
+DESeq2_int_results <- results(dds_int, name = "ph", lfcThreshold = 0, alpha = 0.05)
+
+summary(DESeq2_int_results)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Differential expression
+
+```{r}
+con <- makeContrasts(amb.6 - low.6, levels=design)
+qlf <- glmQLFTest(fit, contrast=con)
+topTags(qlf)
+```
+
+```{r}
+summary(decideTests(qlf))
+plotMD(qlf, cex=0.6)
+```
+```{r}
+tr <- glmTreat(fit, contrast=con, lfc=log2(1.1))
+topTags(tr)
+summary(decideTests(tr))
+plotMD(tr, cex=0.6)
+```
+
+## ANOVA-like testing, contrast includes 3 groups, here temperature
+
+```{r}
+## Ambient pH 
+con <- makeContrasts(
+  amb.3vs6 = amb.3 - amb.6,
+  amb.3vs10 = amb.3 - amb.10,
+  amb.6vs10 = amb.6 - amb.10, levels=design)
+anov <- glmQLFTest(fit, contrast=con)
+topTags(anov)
+summary(decideTests(anov))
+```
+
+```{r}
+## Low pH 
+con <- makeContrasts(
+  low.3vs6 = low.3 - low.6,
+  low.3vs10 = low.3 - low.10,
+  low.6vs10 = low.6 - low.10, levels=design)
+anov <- glmQLFTest(fit, contrast=con)
+topTags(anov)
+summary(decideTests(anov))
+```
+
+
+### Can I do a blocked design, to try to remove any effects of tank 
+
+```{r}
+tank <- counts.treat$tank
+treatment <- counts.treat$treatment
+design <- model.matrix(~tank+treatment)
+View(design)
+design %>% as.data.frame()
+```
+
+
+
+```{r}
+## Create 'targets' and 'Group dataframe, expressing experimental variables for DEG analysis
+pCO2 <- as.numeric(c( 255, 255, 255, 255, 255, 255,
+                      530, 530, 530, 530, 530, 530,
+                      918, 918, 918, 918, 918, 918))
+# Square pCO2 variable
+pCO2_2 <- pCO2 ^ 2
+
+treatment <- c("B","B", "B", "B", "B", "B",
+               "R", "R", "R", "R", "R", "R",
+               "Y", "Y", "Y", "Y", "Y", "Y")
+
+day <- as.numeric(c(7, 7, 7, .5, .5, .5,
+                    7, 7, 7, .5, .5, .5,
+                    7, 7, 7, .5, .5, .5))
+
+targets <- data.frame(pCO2, day, treatment)
+targets$grouping <- paste(targets$pCO2, targets$day, sep = ".")
+
+# The group factor represents the combined levels of an experimental replicate across all variables
+Group <- factor(paste(targets$day, targets$pCO2, sep = "_"))
+
+# Fit multifactorial design matrix
+design_nl <-
+    model.matrix(~ 1 + pCO2_2 + pCO2 + pCO2_2:day + pCO2:day) # Generate multivariate edgeR glm
+
+View(design_nl)
+```
+

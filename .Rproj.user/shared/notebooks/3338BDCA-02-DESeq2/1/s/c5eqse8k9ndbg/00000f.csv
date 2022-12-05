@@ -1,3 +1,5 @@
+"0","#### Load counts and sample info "
+"0",""
 "0","load(file=""../data/sample.info"")"
 "0","load(file = ""../results/counts"")"
 "0","load(file = ""../results/counts.t"")"

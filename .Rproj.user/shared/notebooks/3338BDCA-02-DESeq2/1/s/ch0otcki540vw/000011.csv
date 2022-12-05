@@ -1,3 +1,7 @@
+"0","#### Reformat for DESeq, ensure correct sample order for "
+"0",""
+"0","# NOTE: It is absolutely critical that the **columns of the count matrix** and the **rows of the column data (information about samples)** are in the same order. DESeq2 will not make guesses as to which column of the count matrix belongs to which row of the column data, these must be provided to DESeq2 already in consistent order."
+"0",""
 "0","all(rownames(counts.tk) == counts.tk[-1:-5] %>% t() %>% colnames()) #check that rownames of untransformed matrix match column names of transformed matrix. Should print 'TRUE' "
 "1","[1]"
 "1"," TRUE"

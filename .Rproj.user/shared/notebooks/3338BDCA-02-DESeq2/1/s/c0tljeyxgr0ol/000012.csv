@@ -1,3 +1,5 @@
+"0","#### Generate DESeq datasets with various treatment comparisons  "
+"0",""
 "0","dds.ph <- DESeqDataSetFromMatrix(countData = counts.tk[-1:-5] %>% t(),"
 "0","                              colData = counts.tk[,""ph"", drop=FALSE] ,"
 "0","                              design = ~ ph)"

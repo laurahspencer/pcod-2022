@@ -6,13 +6,13 @@
 "0","summary(res.temp.3.6.amb <- results(dds.DESeq.treatment, contrast=c(""treatment"", ""3_amb"", ""6_amb""), alpha=0.05))"
 "1","
 "
-"1","out of 20968 with nonzero total read count
+"1","out of 21076 with nonzero total read count
 "
 "1","adjusted p-value < 0.05
 "
-"1","LFC > 0 (up)       : 1076, 5.1%
+"1","LFC > 0 (up)       : 1239, 5.9%
 "
-"1","LFC < 0 (down)     : 1459, 7%
+"1","LFC < 0 (down)     : 1415, 6.7%
 "
 "1","outliers [1]       : 0, 0%
 "
@@ -28,7 +28,7 @@
 "
 "0","paste(""No. of genes differentially expressed (padj<0.05) between 6C & 10C, ambient pH:"",  sum(res.temp.3.6.amb$padj < 0.05, na.rm=TRUE))"
 "1","[1]"
-"1"," ""No. of genes differentially expressed (padj<0.05) between 6C & 10C, ambient pH: 2535"""
+"1"," ""No. of genes differentially expressed (padj<0.05) between 6C & 10C, ambient pH: 2654"""
 "1","
 "
 "0","print(""Comparison: 3C vs. 10C, ambient pH"")"
@@ -39,13 +39,13 @@
 "0","summary(res.temp.3.10.amb <- results(dds.DESeq.treatment, contrast=c(""treatment"", ""3_amb"", ""10_amb""), alpha=0.05))"
 "1","
 "
-"1","out of 20968 with nonzero total read count
+"1","out of 21076 with nonzero total read count
 "
 "1","adjusted p-value < 0.05
 "
-"1","LFC > 0 (up)       : 5211, 25%
+"1","LFC > 0 (up)       : 5537, 26%
 "
-"1","LFC < 0 (down)     : 5504, 26%
+"1","LFC < 0 (down)     : 5988, 28%
 "
 "1","outliers [1]       : 0, 0%
 "
@@ -61,7 +61,7 @@
 "
 "0","paste(""No. of genes differentially expressed (padj<0.05) between 3C & 10C, ambient pH:"",  sum(res.temp.3.10.amb$padj < 0.05, na.rm=TRUE))"
 "1","[1]"
-"1"," ""No. of genes differentially expressed (padj<0.05) between 3C & 10C, ambient pH: 10715"""
+"1"," ""No. of genes differentially expressed (padj<0.05) between 3C & 10C, ambient pH: 11525"""
 "1","
 "
 "0","print(""Comparison: 6C vs. 10C, ambient pH"")"
@@ -72,13 +72,13 @@
 "0","summary(res.temp.6.10.amb <- results(dds.DESeq.treatment, contrast=c(""treatment"", ""6_amb"", ""10_amb""), alpha=0.05))"
 "1","
 "
-"1","out of 20968 with nonzero total read count
+"1","out of 21076 with nonzero total read count
 "
 "1","adjusted p-value < 0.05
 "
-"1","LFC > 0 (up)       : 4903, 23%
+"1","LFC > 0 (up)       : 4753, 23%
 "
-"1","LFC < 0 (down)     : 4452, 21%
+"1","LFC < 0 (down)     : 4351, 21%
 "
 "1","outliers [1]       : 0, 0%
 "
@@ -94,6 +94,6 @@
 "
 "0","paste(""No. of genes differentially expressed (padj<0.05) between 6C & 10C, ambient pH:"",  sum(res.temp.6.10.amb$padj < 0.05, na.rm=TRUE))"
 "1","[1]"
-"1"," ""No. of genes differentially expressed (padj<0.05) between 6C & 10C, ambient pH: 9355"""
+"1"," ""No. of genes differentially expressed (padj<0.05) between 6C & 10C, ambient pH: 9104"""
 "1","
 "

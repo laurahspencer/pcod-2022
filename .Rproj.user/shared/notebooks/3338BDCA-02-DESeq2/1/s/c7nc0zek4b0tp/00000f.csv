@@ -1,3 +1,5 @@
+"0","#### Just looking at temperature and pH "
+"0",""
 "0","# print(""Comparison: 6C vs 10C, any pH"")"
 "0","# summary(res.temp.3.6 <- results(dds.DESeq.temperature, contrast=c(""temperature"", ""3"", ""6""), alpha=0.05))"
 "0","# paste(""No. of genes differentially expressed (padj<0.05) between 3C & 6C, any pH:"",  sum(res.temp.3.6$padj < 0.05, na.rm=TRUE))"

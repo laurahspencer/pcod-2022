@@ -1,3 +1,7 @@
+"0","#### Save differential expression results to objects "
+"0",""
+"0","#_These are the most straight-forward pairwise contrasts_"
+"0",""
 "0","save(res.pH.3, file = ""../results/deseq2/res.pH.3"")"
 "0","save(res.pH.6, file = ""../results/deseq2/res.pH.6"")"
 "0","save(res.pH.10, file = ""../results/deseq2/res.pH.10"")"

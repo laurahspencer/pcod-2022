@@ -1,1 +1,3 @@
+"0","# To view the the guts of the PlotPCA function in DESeq2, execute this code chunk. It reveals that, by default, it only uses the top 500 most influential genes to plot the PCA! "
+"0",""
 "0","#getMethod(""plotPCA"",""DESeqTransform"")"

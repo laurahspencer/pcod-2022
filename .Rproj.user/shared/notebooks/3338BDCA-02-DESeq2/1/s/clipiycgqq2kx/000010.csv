@@ -1,3 +1,8 @@
+"0",""
+"0","#### Save variance-stabilization normalized gene counts x sample matrix, annotated for later use "
+"0",""
+"0","####**NOTE: Here forward I primarily work with the vsd.treatment object, so I can do pairwise treatment contrasts** "
+"0",""
 "0","counts.trans <- assay(vsd.treatment) %>% t() %>% as.matrix() %>% as.data.frame() %>% "
 "0","  rownames_to_column(var = ""sample"") %>% "
 "0","  left_join(sample.info[,c(""vial_label"", ""treatment"", ""tank"", ""temperature"", ""ph"")], by = c(""sample""=""vial_label"")) %>%"
