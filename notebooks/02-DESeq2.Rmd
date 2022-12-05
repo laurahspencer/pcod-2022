@@ -327,7 +327,7 @@ legend("topright", title = "Treatment", bty="n", legend =
 # plot(cluster.dendo[[1]], horiz = TRUE)
 ```
 
-#### **NOTE: Samples 194 & 137 look like outliers!**
+#### **NOTE: Samples 194 & 137 look like outliers!** - therefore they were removed 
 
 ```{r}
 
@@ -480,6 +480,38 @@ ggscatter(tab.expr.annot, x="EV1.all", y="EV4.all",
           ) +
   theme_minimal() + ggtitle("Global gene expression, PC1xPC4") + 
   xlab(paste("PC1 (", round(pc.percent[1], digits = 1), "%)", sep="")) + 
+  ylab(paste("PC4 (", round(pc.percent[4], digits = 1), "%)", sep="")) + 
+  theme(legend.position = "right") + 
+  scale_color_manual(name="Treatment", values=c("3_amb"= "navyblue", "3_low"="royalblue1","6_amb"="darkgreen", 
+                              "6_low"="yellow3","10_amb"="firebrick4", "10_low"="sienna2")) +
+  scale_fill_manual(values=c("3_amb"= "navyblue", "3_low"="royalblue1","6_amb"="darkgreen", 
+                              "6_low"="yellow3","10_amb"="firebrick4", "10_low"="sienna2"), guide = "none") +
+  guides(colour = guide_legend(override.aes = list(size=3.5, linetype="blank"))) 
+
+
+# GGSCATTER with ellipses and stars - PC2 PC3
+ggscatter(tab.expr.annot, x="EV2.all", y="EV3.all",
+          col="treatment", size=2.5, alpha=0.85, ellipse = TRUE, star.plot = TRUE, 
+          #palette = c(Ambient="#2c7bb6", Moderate="#fdae61", Low="#d7191c")
+          ) +
+  theme_minimal() + ggtitle("Global gene expression, PC2xPC3") + 
+  xlab(paste("PC2 (", round(pc.percent[2], digits = 1), "%)", sep="")) + 
+  ylab(paste("PC3 (", round(pc.percent[3], digits = 1), "%)", sep="")) + 
+  theme(legend.position = "right") + 
+  scale_color_manual(name="Treatment", values=c("3_amb"= "navyblue", "3_low"="royalblue1","6_amb"="darkgreen", 
+                              "6_low"="yellow3","10_amb"="firebrick4", "10_low"="sienna2")) +
+  scale_fill_manual(values=c("3_amb"= "navyblue", "3_low"="royalblue1","6_amb"="darkgreen", 
+                              "6_low"="yellow3","10_amb"="firebrick4", "10_low"="sienna2"), guide = "none") +
+  guides(colour = guide_legend(override.aes = list(size=3.5, linetype="blank"))) 
+
+
+# GGSCATTER with ellipses and stars - PC2 PC4
+ggscatter(tab.expr.annot, x="EV2.all", y="EV4.all",
+          col="treatment", size=2.5, alpha=0.85, ellipse = TRUE, star.plot = TRUE, 
+          #palette = c(Ambient="#2c7bb6", Moderate="#fdae61", Low="#d7191c")
+          ) +
+  theme_minimal() + ggtitle("Global gene expression, PC2xPC4") + 
+  xlab(paste("PC2 (", round(pc.percent[2], digits = 1), "%)", sep="")) + 
   ylab(paste("PC4 (", round(pc.percent[4], digits = 1), "%)", sep="")) + 
   theme(legend.position = "right") + 
   scale_color_manual(name="Treatment", values=c("3_amb"= "navyblue", "3_low"="royalblue1","6_amb"="darkgreen", 
