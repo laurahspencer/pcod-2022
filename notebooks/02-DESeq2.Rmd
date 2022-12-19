@@ -1996,7 +1996,7 @@ enriched.bp.degs.upregulated %>%
   mutate(process = factor(process, rev(unique(process)), ordered = TRUE)) %>%
 
 ggplot(aes(y = process, x=contrast, col=upregulated)) + 
-  geom_point(aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
+  geom_point(alpha=0.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
  facet_wrap(~category,scales="free", nrow = 2, 
             labeller = as_labeller(c(`GOTERM_BP_DIRECT`="Enriched Biological Processes\nAmbient vs. Low pH\nby temperature"))) +
   scale_color_manual(name="Upregulated", values=c(`Ambient-pH`="#2c7bb6", `Low-pH`="#d7191c"),
@@ -2062,7 +2062,7 @@ enriched.bp.degs.upregulated %>%
   mutate(upreg_ph=factor(paste(upregulated, background, sep = " "))) %>%
   
 ggplot(aes(y = process, x=contrast, col=upreg_ph)) + 
-  geom_point(aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
+  geom_point(alpha=0.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
  facet_wrap(~category,scales="free", nrow = 2, labeller = as_labeller(c(`GOTERM_BP_DIRECT`="Enriched Biological Processes\nAmbient vs. Low pH\nby temperature"))) +
   scale_color_manual(name="Upregulated",
                      values=c("3C Amb-pH"= "navyblue", "3C Low-pH"="royalblue1",
@@ -2139,7 +2139,7 @@ enriched.bp.degs.upregulated %>%
   filter(grepl("3", contrast)) %>% filter(grepl("6", contrast)) %>%  #filter for 3 vs 6 contrasts
   
 ggplot(aes(y = process, x=contrast, col=upreg_ph)) + 
-  geom_point(aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
+  geom_point(alpha=0.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
  facet_wrap(~category,scales="free", nrow = 2) +
   scale_color_manual(name="Upregulated",
                      values=c("3C Amb-pH"= "navyblue", "3C Low-pH"="royalblue1",
@@ -2201,7 +2201,7 @@ enriched.bp.degs.upregulated %>%
   filter(grepl("3", contrast)) %>% filter(grepl("10", contrast)) %>%  #filter for 3 vs 10 contrasts
   
 ggplot(aes(y = process, x=contrast, col=upreg_ph)) + 
-  geom_point(aes(size=-log10(p_value))) + 
+  geom_point(alpha=0.65, aes(size=-log10(p_value))) + 
  facet_wrap(~category,scales="free", nrow = 2) + 
   scale_color_manual(name="Upregulated",
                      values=c("3C Amb-pH"= "navyblue", "3C Low-pH"="royalblue1",
@@ -2264,7 +2264,7 @@ enriched.bp.degs.upregulated %>%
   filter(grepl("6", contrast)) %>% filter(grepl("10", contrast)) %>%  #filter for 6 vs 10 contrasts
   
 ggplot(aes(y = process, x=contrast, col=upreg_ph)) + 
-  geom_point(aes(size=-log10(p_value))) +
+  geom_point(alpha=0.65, aes(size=-log10(p_value))) +
  facet_wrap(~category,scales="free", nrow = 2) + 
   scale_color_manual(name="Upregulated",
                      values=c("3C Amb-pH"= "navyblue", "3C Low-pH"="royalblue1",
