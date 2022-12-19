@@ -1,0 +1,6 @@
+GO-enrich_linear-increase.txt	linear-Increase-interaction
+GO-enrich_linear-decrease.txt	linear-Decrease-interaction
+GO-enrich_nonlinear-Ashaped-in-ambient.txt	nonlinear-Ashaped-interaction
+GO-enrich_nonlinear-Ushaped-in-ambient.txt	nonlinear-Ushaped-interaction
+GO-enrich_nonlinear_no-interaction_Ashaped.txt	nonlinear-Ashaped-nointeraction
+GO-enrich_nonlinear_no-interaction_Ushaped.txt	nonlinear-Ushaped-nointeraction

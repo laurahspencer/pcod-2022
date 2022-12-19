@@ -1,3 +1,5 @@
 "0","save(counts, file = ""../results/counts"")"
 "0","save(counts.t, file = ""../results/counts.t"")"
-"0","save(counts.ts, file = ""../results/counts.ts"")"
+"2","Warning: cannot open compressed file '../results/counts.t', probable reason 'Invalid argument'"
+"2","Error in gzfile(file, ""wb"") : cannot open the connection
+"

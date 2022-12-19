@@ -1,0 +1,14 @@
+GO-enrich_3Cvs6C-Amb-pH_down-in-3.txt	3vs6.Amb-pH_6C
+GO-enrich_3Cvs6C-Amb-pH_up-in-3.txt	3vs6.Amb-pH_3C
+GO-enrich_3Cvs6C-Low-pH_down-in-3.txt	3vs6.Low-pH_6C
+GO-enrich_3Cvs6C-Low-pH_up-in-3.txt	3vs6.Low-pH_3C
+GO-enrich_3Cvs10C-Amb-pH_down-in-10.txt	3vs10.Amb-pH_3C
+GO-enrich_3Cvs10C-Amb-pH_up-in-10.txt	3vs10.Amb-pH_10C
+GO-enrich_3Cvs10C-Low-pH_down-in-10.txt	3vs10.Low-pH_3C
+GO-enrich_3Cvs10C-Low-pH_up-in-10.txt	3vs10.Low-pH_10C
+GO-enrich_6Cvs10C-Amb-pH_down-in-10.txt	6vs10.Amb-pH_6C
+GO-enrich_6Cvs10C-Amb-pH_up-in-10.txt	6vs10.Amb-pH_10C
+GO-enrich_6Cvs10C-Low-pH_down-in-10.txt	6vs10.Low-pH_6C
+GO-enrich_6Cvs10C-Low-pH_up-in-10.txt	6vs10.Low-pH_10C
+GO-enrich_Amb-vs-Low-6C_down-in-low.txt	AmbvsLow.6C_Ambient-pH
+GO-enrich_Amb-vs-Low-6C_up-in-low.txt	AmbvsLow.6C_Low-pH

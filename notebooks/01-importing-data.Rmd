@@ -93,40 +93,40 @@ save(sample.info, file="../data/sample.info")
 
 #### Generate tab-separated file that lists file names
 
-```{bash}
-rm ../results/star/countsfilenames.txt #rm file if it already exists
-for file in ../results/star/*.ReadsPerGene.out.tab
-do
-filename="$(echo $file)"
-sample="$(basename -a $filename | cut -d "." -f 1)"
-printf "%s\t%s\n" "$filename" "$sample" >> ../results/star/countsfilenames.txt
-done
-```
+<!-- ```{bash} -->
+<!-- rm ../results/star/countsfilenames.txt #rm file if it already exists -->
+<!-- for file in ../results/star/*.ReadsPerGene.out.tab -->
+<!-- do -->
+<!-- filename="$(echo $file)" -->
+<!-- sample="$(basename -a $filename | cut -d "." -f 1)" -->
+<!-- printf "%s\t%s\n" "$filename" "$sample" >> ../results/star/countsfilenames.txt -->
+<!-- done -->
+<!-- ``` -->
 
 #### Confirm filenamems look good
 
-```{bash}
-head ../results/star/countsfilenames.txt
-wc -l ../results/star/countsfilenames.txt
-```
+<!-- ```{bash} -->
+<!-- head ../results/star/countsfilenames.txt -->
+<!-- wc -l ../results/star/countsfilenames.txt -->
+<!-- ``` -->
 
 ```{r}
-# Using STAR aligned and STAR quantified counts
-filenames <- read_delim(file="../results/star/countsfilenames.txt", col_names = c("filename", "sample"), delim = "\t")
-files <- file.path(filenames$filename) #extract vector of filenames
-all(file.exists(files)) #easy code to check that all files exist!
-
-file_list <- vector(mode = "list", length = nrow(filenames))
-names(file_list) <- c(filenames$sample)
-
-for (i in 1:nrow(filenames)) {
-    file_list[[i]] <- data.frame(read.delim(file=files[i]))[-1:-4,1:2]
-    names(file_list[[i]]) <- c("gene", filenames$sample[i])
-    print(paste("Total COUNTS,", names(file_list[[i]][2]), ":", prettyNum(sum(file_list[[i]][2]), big.mark=","), sep=" "))
-    print(paste("Total GENES,", names(file_list[[i]][2]), ":", prettyNum(nrow(file_list[[i]] %>% filter(.[[2]] != 0)), big.mark=","), sep=" "))
-}
-
-(counts.star <- file_list %>% purrr::reduce(full_join, by = "gene") %>% column_to_rownames(var="gene"))
+# # Using STAR aligned and STAR quantified counts
+# filenames <- read_delim(file="../results/star/countsfilenames.txt", col_names = c("filename", "sample"), delim = "\t")
+# files <- file.path(filenames$filename) #extract vector of filenames
+# all(file.exists(files)) #easy code to check that all files exist!
+# 
+# file_list <- vector(mode = "list", length = nrow(filenames))
+# names(file_list) <- c(filenames$sample)
+# 
+# for (i in 1:nrow(filenames)) {
+#     file_list[[i]] <- data.frame(read.delim(file=files[i]))[-1:-4,1:2]
+#     names(file_list[[i]]) <- c("gene", filenames$sample[i])
+#     print(paste("Total COUNTS,", names(file_list[[i]][2]), ":", prettyNum(sum(file_list[[i]][2]), big.mark=","), sep=" "))
+#     print(paste("Total GENES,", names(file_list[[i]][2]), ":", prettyNum(nrow(file_list[[i]] %>% filter(.[[2]] != 0)), big.mark=","), sep=" "))
+# }
+# 
+# (counts.star <- file_list %>% purrr::reduce(full_join, by = "gene") %>% column_to_rownames(var="gene"))
 ```
 
 ### Import counts generated using featurecounts from star alignments
@@ -195,8 +195,6 @@ After preliminary examination of blast results (by looking at genes, lengths, an
 ```
 
 ### Optional: FILTER GENES THAT ARE OUTLIERS IN OUTLIER SAMPLES- NOT USED AS OF 12/2/2022
-
-The sample Tank 7 Crab 4 is weird, and has outlier counts in many genes. I identified them in my Outlier notebook, so here I will remove them from the count matrix. NOTE: you cannot simply replace counts for some samples with NA. DESeq2 doesn't accept those. 
 
 ```{r}
 # counts <- counts[-which(rownames(counts) %in% outliers),]
@@ -315,7 +313,7 @@ gadMor.blast %>% filter(evalue < 1.0e-20) %>% nrow() # 14,253 genes have e-value
 gadMor.blast <- gadMor.blast %>% filter(evalue < 1.0e-10)
 
 save(gadMor.blast, file = "../references/gadMor.blast")
-#load(file = "../references/gadMor.blast")
+load(file = "../references/gadMor.blast")
 ```
 
 ### Annotate with GO terms and other info

@@ -1,6 +1,0 @@
-"0","#### Subset the DESeq results for only those statistically sign. ones "
-"0",""
-"0","diffex.pH.3 <- subset(res.pH.3, padj < 0.05)"
-"2","Error in h(simpleError(msg, call)) : 
-  error in evaluating the argument 'x' in selecting a method for function 'subset': object 'res.pH.3' not found
-"
