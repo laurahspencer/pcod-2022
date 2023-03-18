@@ -7,3 +7,4 @@ gadMor3.0_genes_blastx.tab
 *.fq
 .RData
 .Rproj.user
+results/star/featurecounts/featurecounts_exon
