@@ -333,6 +333,8 @@ gadMor.blast.GO <- left_join(gadMor.blast, read_delim(file = "../references/gadM
 
 save(gadMor.blast.GO, file = "../references/gadMor.blast.GO")
 load(file = "../references/gadMor.blast.GO")
+
+View(gadMor.blast.GO)
 ```
 
 ### Annotate gene counts dataframe
@@ -363,4 +365,17 @@ right_join(
 read_delim(file = "../references/genomic.gff", delim = "\t", col_names = F, skip = 8) %>% 
   mutate(X3=as.factor(X3)) %>% filter(X3=="gene")
 ```
+
+```{r}
+View(gadMor.blast.GO)
+```
+
+```{r}
+counts.ts %>% head(n=100) %>% View()
+counts.annot.gadmor %>% head(n=100) #%>% View()
+counts.annot.gadmor %>% head(n=100) %>% select(gene_gadmor, 
+                                               PCG001, PCG004, PCG011, PCG015, PCG017, PCG020, PCG029, PCG035, 
+                                               spid, species, evalue, protein_names) %>% View()
+```
+
 

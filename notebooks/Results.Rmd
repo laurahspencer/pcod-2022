@@ -1,0 +1,334 @@
+---
+title: "Results and Figures"
+author: "Laura Spencer"
+date: "2023-01-04"
+output: html_document
+---
+
+Create a dataframe with all examined genes, identifying those of interest 
+
+```{r}
+results.df <- counts.annot.gadmor %>%
+  select(-contains("PCG")) %>% # remove counts from dataframe 
+  mutate(
+    deg.ph.3=case_when(gene_gadmor %in% rownames(diffex.pH.3.filt) ~ "yes", TRUE ~ "no"),
+    deg.ph.6=case_when(gene_gadmor %in% rownames(diffex.pH.6.filt) ~ "yes", TRUE ~ "no"),
+    deg.ph.10=case_when(gene_gadmor %in% rownames(diffex.pH.10.filt) ~ "yes", TRUE ~ "no"),
+    deg.temp.3.6.amb=case_when(gene_gadmor %in% rownames(diffex.temp.3.6.amb.filt) ~ "yes", TRUE ~ "no"),
+    deg.temp.3.10.amb=case_when(gene_gadmor %in% rownames(diffex.temp.3.10.amb.filt) ~ "yes", TRUE ~ "no"),
+    deg.temp.6.10.amb=case_when(gene_gadmor %in% rownames(diffex.temp.6.10.amb.filt) ~ "yes", TRUE ~ "no"),
+    deg.temp.3.6.low=case_when(gene_gadmor %in% rownames(diffex.temp.3.6.low.filt) ~ "yes", TRUE ~ "no"),
+    deg.temp.3.10.low=case_when(gene_gadmor %in% rownames(diffex.temp.3.10.low.filt) ~ "yes", TRUE ~ "no"),
+    deg.temp.6.10.low=case_when(gene_gadmor %in% rownames(diffex.temp.6.10.low.filt) ~ "yes", TRUE ~ "no"),
+    linear.interact.increase=case_when(gene_gadmor %in% linear_interaction_degs_increase$geneid ~ "yes", TRUE ~ "no"),
+    linear.interact.decrease=case_when(gene_gadmor %in% linear_interaction_degs_decrease$geneid ~ "yes", TRUE ~ "no"),
+    nonlinear.interact.Ashaped=case_when(gene_gadmor %in% nonlinear_interaction_degs_Ashaped$geneid ~ "yes", TRUE ~ "no"),
+    nonlinear.interact.Vshaped=case_when(gene_gadmor %in% nonlinear_interaction_degs_Vshaped$geneid ~ "yes", TRUE ~ "no"),
+    nonlinear.no.interact.Ashaped=case_when(gene_gadmor %in% (nonlinear_no.interaction_degs %>% filter(temperature_2_binom=="Convex"))$geneid ~ "yes", TRUE ~ "no"),
+    nonlinear.no.interact.Vshaped=case_when(gene_gadmor %in% (nonlinear_no.interaction_degs %>% filter(temperature_2_binom=="Concave"))$geneid ~ "yes", TRUE ~ "no"),
+    temperature.splice=case_when(gene_gadmor %in% temperature.splice.sign$Geneid ~ "yes", TRUE ~ "no"))
+
+View(results.df)
+```
+
+Plot any gene of interest using protein name 
+
+```{r}
+protein.name <- "Bile salt-activated lipase"
+  #"Kruppel-like factor 18"
+genes.interest <- gadMor.blast.GO %>% filter(str_detect(protein_names, protein.name)) %>% filter(gene_gadmor %in% rownames(res.pH.3)) 
+
+#enzymes %>% select(gene_gadmor, spid, gene_uni, protein_names) %>% write_clip()
+
+# Are enzymes of interest to RNASeq analyses?
+results.df %>% filter(gene_gadmor %in% genes.interest$gene_gadmor)
+
+for (i in 1:nrow(genes.interest)) {
+a <-  plotCounts(dds.DESeq.treatment, gene=genes.interest$gene_gadmor[i], intgroup=c("treatment"), replaced = TRUE, returnData = TRUE) %>%
+  rownames_to_column("sample") %>%
+  left_join(sample.info[,c("vial_label", "temperature", "ph", "tank", "treatment_tank")], by=c("sample"="vial_label")) %>%
+  #mutate(treatment=factor(treatment, ordered = T, levels = c("3_amb", "3_low", "6_amb", "6_low", "")))
+  mutate(ph=as.factor(case_when(ph=="amb" ~ "Ambient pCO2", TRUE ~ "High pCO2")))
+
+# Plot and facet wrap by ph
+print(ggplot(a,
+       aes(x=temperature, y=count, color=temperature, label=sample)) +
+  geom_boxplot(outlier.shape = NA) + facet_wrap(~ph) +
+  geom_point(size=2.5, position=position_jitter(w = 0.15,h = 0)) +
+    #geom_text(size=3.5, position=position_jitter(w = 0.15,h = 0)) +
+    theme_bw() +
+    ggtitle(str_wrap(genes.interest$protein_names[i])) +
+    theme(axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size=14), legend.position = "none") +
+    scale_color_manual(name="Temperature", values=c("3"= "navyblue", "6"="darkgreen", "10"="firebrick4"))
+  # scale_color_manual(values=c("3:amb"= "navyblue", "3:low"="royalblue1","6:amb"="darkgreen",
+  #                             "6:low"="yellow3","10:amb"="firebrick4", "10:low"="sienna2"))
+  )
+}
+
+```
+
+
+Plot genes of interest relating to enzyme analysis 
+
+```{r, warning=FALSE}
+
+enzymes <- 
+#gadMor.blast.GO %>% filter(str_detect(protein_names, "itrate synthase")) %>% filter(gene_gadmor %in% rownames(res.pH.3)) #Citrate Synthase
+#gadMor.blast.GO %>% filter(str_detect(protein_names, "hydroxyacyl-CoA dehydrogenase")) %>% filter(gene_gadmor %in% rownames(res.pH.3)) #HOAD
+#gadMor.blast.GO %>% filter(str_detect(protein_names, "lactate dehydrogenase")) %>% filter(gene_gadmor %in% rownames(res.pH.3)) #Lactate Dehydrogenase
+gadMor.blast.GO %>% filter(str_detect(protein_names, "yruvate kinase")) %>% filter(gene_gadmor %in% rownames(res.pH.3)) #Citrate Synthase
+
+#enzymes %>% select(gene_gadmor, spid, gene_uni, protein_names) %>% write_clip()
+
+# Are enzymes of interest to RNASeq analyses?
+results.df %>% filter(gene_gadmor %in% enzymes$gene_gadmor)
+
+for (i in 1:nrow(enzymes)) {
+a <-  plotCounts(dds.DESeq.treatment, gene=enzymes$gene_gadmor[i], intgroup=c("treatment"), replaced = TRUE, returnData = TRUE) %>%
+  rownames_to_column("sample") %>%
+  left_join(sample.info[,c("vial_label", "temperature", "ph", "tank", "treatment_tank")], by=c("sample"="vial_label")) %>%
+  #mutate(treatment=factor(treatment, ordered = T, levels = c("3_amb", "3_low", "6_amb", "6_low", "")))
+  mutate(ph=as.factor(case_when(ph=="amb" ~ "Ambient pCO2", TRUE ~ "High pCO2")))
+
+# plot 
+print(ggplot(a,
+       aes(x=interaction(temperature:ph), y=count, color=interaction(temperature:ph))) +
+  geom_boxplot(aes(fill=interaction(temperature:ph)), outlier.shape = NA, alpha=0.35) + 
+  geom_point(size=2.5, position=position_jitter(w = 0.15,h = 0)) +
+    #geom_text(size=3.5, position=position_jitter(w = 0.15,h = 0)) +
+    theme_bw() +
+    ggtitle(str_wrap(enzymes$protein_names[i])) +
+    theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
+          plot.title = element_text(hjust = 0.5, size=11), legend.position = "none") +
+  scale_color_manual(values=c("3:Ambient pCO2"= "navyblue", "3:High pCO2"="navyblue","6:Ambient pCO2"="darkgreen",
+                               "6:High pCO2"="darkgreen","10:Ambient pCO2"="firebrick4", "10:High pCO2"="firebrick4")) +
+  scale_fill_manual(name="pCO2", values=c("3:Ambient pCO2"= "navyblue", "3:High pCO2"="white","6:Ambient pCO2"="darkgreen",
+                               "6:High pCO2"="white","10:Ambient pCO2"="firebrick4", "10:High pCO2"="white")))
+
+# # Facet wrap by ph
+# print(ggplot(a,
+#        aes(x=temperature, y=count, color=temperature, label=sample)) +
+#   geom_boxplot(outlier.shape = NA) + facet_wrap(~ph) +
+#   geom_point(size=2.5, position=position_jitter(w = 0.15,h = 0)) +
+#     #geom_text(size=3.5, position=position_jitter(w = 0.15,h = 0)) +
+#     theme_bw() +
+#     ggtitle(str_wrap(enzymes$protein_names[i])) +
+#     theme(axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size=14), legend.position = "none") +
+#     scale_color_manual(name="Temperature", values=c("3"= "navyblue", "6"="darkgreen", "10"="firebrick4"))
+#   # scale_color_manual(values=c("3:amb"= "navyblue", "3:low"="royalblue1","6:amb"="darkgreen",
+#   #                             "6:low"="yellow3","10:amb"="firebrick4", "10:low"="sienna2"))
+#   )
+}
+```
+Enzyme ratios 
+
+LDH:CS = anaerobic:aerobic contributions 
+HOAD:CS = fatty acid contribution towards aerobic metabolism  
+
+```{r}
+enzyme.genes <- c("ldhd", "cs", "hadh")
+enzyme.genes.counts <- vector("list", length(enzyme.genes))
+names(enzyme.genes.counts) <- enzyme.genes
+
+for (i in 1:length(enzyme.genes.counts)) {
+enzyme.genes.counts[[i]] <-  plotCounts(dds.DESeq.treatment, gene=enzyme.genes[i], intgroup=c("treatment"), replaced = TRUE, returnData = TRUE) %>%
+  rownames_to_column("sample") %>%
+  left_join(sample.info[,c("vial_label", "temperature", "ph", "tank", "treatment_tank")], by=c("sample"="vial_label")) %>%
+  #filter(treatment %in% b) %>%
+  mutate(treatment=fct_relevel(treatment, c("3_amb", "6_amb", "10_amb", "3_low", "6_low", "10_low"))) %>%
+  mutate(ph=as.factor(case_when(ph=="amb" ~ "Ambient pCO2", TRUE ~ "High pCO2")))
+}
+
+enzyme.ratios <- bind_rows(enzyme.genes.counts, .id = "gene_gadmor") %>% 
+  mutate(gene_gadmor=as.factor(gene_gadmor)) %>%
+  pivot_wider(names_from=gene_gadmor, values_from=count) %>%
+  mutate(`LDH:CS`=ldhd/cs,
+         `HOAD:CS`=hadh/cs)
+
+# Examine LDH:CS ratio 
+ggplot(enzyme.ratios,
+       aes(x=interaction(temperature:ph), y=`LDH:CS`, color=interaction(temperature:ph))) +
+  geom_boxplot(aes(fill=interaction(temperature:ph)), outlier.shape = NA, alpha=0.35) + 
+  geom_point(size=2.5, position=position_jitter(w = 0.15,h = 0)) +
+    #geom_text(size=3.5, position=position_jitter(w = 0.15,h = 0)) +
+    theme_bw() +
+    ggtitle("LDH:CS Ratio") +
+    theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
+          plot.title = element_text(hjust = 0.5, size=13), legend.position = "none") +
+  scale_color_manual(values=c("3:Ambient pCO2"= "navyblue", "3:High pCO2"="navyblue","6:Ambient pCO2"="darkgreen",
+                               "6:High pCO2"="darkgreen","10:Ambient pCO2"="firebrick4", "10:High pCO2"="firebrick4")) +
+  scale_fill_manual(name="pCO2", values=c("3:Ambient pCO2"= "navyblue", "3:High pCO2"="white","6:Ambient pCO2"="darkgreen",
+                               "6:High pCO2"="white","10:Ambient pCO2"="firebrick4", "10:High pCO2"="white"))
+hist(log(enzyme.ratios$`LDH:CS`))
+shapiro.test(log(enzyme.ratios$`LDH:CS`))
+summary(aov(log(`LDH:CS`)~temperature*ph, data=enzyme.ratios)) # Temperature affects LDH:CS ratio 
+TukeyHSD(aov(log(`LDH:CS`)~temperature*ph, data=enzyme.ratios)) # All temperatures differ from each other 
+
+# Examine HOAD:CS ratio
+ggplot(enzyme.ratios,
+       aes(x=interaction(temperature:ph), y=`HOAD:CS`, color=interaction(temperature:ph))) +
+  geom_boxplot(aes(fill=interaction(temperature:ph)), outlier.shape = NA, alpha=0.35) + 
+  geom_point(size=2.5, position=position_jitter(w = 0.15,h = 0)) +
+    #geom_text(size=3.5, position=position_jitter(w = 0.15,h = 0)) +
+    theme_bw() +
+    ggtitle("HOAD:CS Ratio") +
+    theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
+          plot.title = element_text(hjust = 0.5, size=13), legend.position = "none") +
+  scale_color_manual(values=c("3:Ambient pCO2"= "navyblue", "3:High pCO2"="navyblue","6:Ambient pCO2"="darkgreen",
+                               "6:High pCO2"="darkgreen","10:Ambient pCO2"="firebrick4", "10:High pCO2"="firebrick4")) +
+  scale_fill_manual(name="pCO2", values=c("3:Ambient pCO2"= "navyblue", "3:High pCO2"="white","6:Ambient pCO2"="darkgreen",
+                               "6:High pCO2"="white","10:Ambient pCO2"="firebrick4", "10:High pCO2"="white"))
+hist(log(enzyme.ratios$`HOAD:CS`))
+shapiro.test(enzyme.ratios$`HOAD:CS`)
+summary(aov(`HOAD:CS`~temperature*ph, data=enzyme.ratios)) # Temperature affects HOAD:CS ratio 
+TukeyHSD(aov(`HOAD:CS`~temperature*ph, data=enzyme.ratios)) # Lower HOAD:CS ratio at 10C compared to other temperatures
+
+# Stats on enzymes using ANOVA
+
+hist(log(enzyme.ratios$cs))
+shapiro.test(enzyme.ratios$cs)
+summary(aov(cs~temperature*ph, data=enzyme.ratios)) # CS affected by temperature and temperature:ph interaction
+TukeyHSD(aov(cs~temperature*ph, data=enzyme.ratios)) # CS differs among all temperatures
+
+```
+
+Plot genes of interest relating to zona pellucida 
+
+```{r, warning=FALSE}
+
+zona <- 
+gadMor.blast.GO %>% filter(str_detect(protein_names, "ona pellucida")) %>% filter(gene_gadmor %in% rownames(res.pH.3)) %>% filter(seq_id == "NC_044056.1")
+
+# Are zona pellucida genes of interest to RNASeq analyses?
+results.df %>% filter(gene_gadmor %in% zona$gene_gadmor)
+
+for (i in 1:nrow(zona)) {
+a <-  plotCounts(dds.DESeq.treatment, gene=zona$gene_gadmor[i], intgroup=c("treatment"), replaced = TRUE, returnData = TRUE) %>%
+  rownames_to_column("sample") %>%
+  left_join(sample.info[,c("vial_label", "temperature", "ph", "tank", "treatment_tank")], by=c("sample"="vial_label"))
+  #mutate(treatment=factor(treatment, ordered = T, levels = c("3_amb", "3_low", "6_amb", "6_low", "")))
+
+print(ggplot(a,
+       aes(x=interaction(temperature:ph), y=count, color=interaction(temperature:ph), label=sample)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_point(aes(x=interaction(temperature:ph)), 
+             size=2.5, position=position_jitter(w = 0.15,h = 0)) +
+    #geom_text(size=3.5, position=position_jitter(w = 0.15,h = 0)) +
+    theme_bw() +
+    ggtitle(paste(str_wrap(zona$protein_names[i]), "\n", 
+                  zona$gene_names[i], " - ", zona$species[i], " - ", zona$seq_id[i], sep="")) +
+    theme(axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size=12), legend.position = "right") +
+  scale_color_manual(values=c("3:amb"= "navyblue", "3:low"="royalblue1","6:amb"="darkgreen",
+                              "6:low"="yellow3","10:amb"="firebrick4", "10:low"="sienna2")))
+}
+```
+
+## Plot interesting genes using Uniprot IDs - each gene separately
+
+```{r, warning=FALSE, message=F}
+keyword <- "Biological rhythms"
+keyword <- "Vision"
+keyword <- "Stress response"
+keyword <- "Immunity"
+keyword <- "DNA integration"
+keyword <- "Urea cycle"
+
+uniprots <- ((enriched.kw.degs.upregulated %>% filter(kw==keyword))$genes)
+uniprots.vect <- vector(mode="character")
+
+for (i in 1:length(uniprots)) {
+  x <- unlist(strsplit(uniprots[i], ", "))
+  uniprots.vect <- append(uniprots.vect, x)
+}
+
+# # Plot all genes in data that match the Uniprot SPIDs of interest
+# test <- counts.annot.gadmor %>% 
+#   filter(spid %in% unique(uniprots.vect))
+
+# plot only the genes that were DEGs and match the Uniprot SPIDs of interest
+test <- results.df %>% 
+  filter(deg.ph.6=="yes" | deg.temp.3.6.amb=="yes" | deg.temp.6.10.amb=="yes" | #deg.temp.3.10.low=="yes" | deg.temp.3.10.amb=="yes" | 
+         deg.temp.3.6.low=="yes" | deg.temp.6.10.low=="yes") %>%
+  filter(spid %in% unique(uniprots.vect))
+
+# to paste into Uniprot 
+test$spid %>% unique() %>% write_clip()
+
+for (i in 1:nrow(test)) {
+a <-  plotCounts(dds.DESeq.treatment, gene=test$gene_gadmor[i], intgroup=c("treatment"), replaced = TRUE, returnData = TRUE) %>%
+  rownames_to_column("sample") %>%
+  left_join(sample.info[,c("vial_label", "temperature", "ph", "tank", "treatment_tank")], by=c("sample"="vial_label")) %>%
+  #filter(treatment %in% b) %>%
+  mutate(treatment=fct_relevel(treatment, c("3_amb", "6_amb", "10_amb", "3_low", "6_low", "10_low"))) %>%
+  mutate(ph=as.factor(case_when(ph=="amb" ~ "Ambient pCO2", TRUE ~ "High pCO2")))
+
+print(
+  ggplot(a,
+       aes(x=temperature, y=count, color=temperature, label=sample)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_point(aes(shape=ph), size=2.5, position=position_jitter(w = 0.15,h = 0)) +
+    #geom_text(size=3.5, position=position_jitter(w = 0.15,h = 0)) +
+    theme_bw() +
+    ggtitle(str_wrap(test$protein_names[i])) +
+    theme(axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size=10), legend.position = "none") +
+  scale_color_manual(name="Temperature", values=c("3"= "navyblue", "6"="darkgreen", "10"="firebrick4")) + 
+  facet_wrap(~ph))
+}
+```
+
+
+## Plot "reaction norms" - i.e. mean 
+
+```{r}
+test1 <- vector("list", nrow(test))
+names(test1) <- test$gene_gadmor
+
+for (i in 1:nrow(test)) {
+test1[[i]] <-  plotCounts(dds.DESeq.treatment, gene=test$gene_gadmor[i], intgroup=c("treatment"), replaced = TRUE, returnData = TRUE) %>%
+  rownames_to_column("sample") %>%
+  left_join(sample.info[,c("vial_label", "temperature", "ph", "tank", "treatment_tank")], by=c("sample"="vial_label")) %>%
+  #filter(treatment %in% b) %>%
+  mutate(treatment=fct_relevel(treatment, c("3_amb", "6_amb", "10_amb", "3_low", "6_low", "10_low"))) %>%
+  mutate(ph=as.factor(case_when(ph=="amb" ~ "Ambient pCO2", TRUE ~ "High pCO2")))
+}
+
+bind_rows(test1, .id = "gene_gadmor") %>% 
+  mutate(gene_gadmor=as.factor(gene_gadmor)) %>%
+  group_by(gene_gadmor, temperature, ph) %>%
+  dplyr::summarize(mean=mean(count), median=median(count), sd=sd(count), cv=sd(count)/mean(count)) %>%
+  group_by(gene_gadmor, temperature, ph) %>% mutate(z_score=scale(mean)) %>%
+
+  ## Plot points for all genes
+  # ggplot(aes(x=temperature, y=mean, color=temperature)) +
+  # geom_boxplot(outlier.shape = NA) +
+  # geom_point(aes(shape=ph), size=2.5, position=position_jitter(w = 0.15,h = 0)) +
+  #   #geom_text(size=3.5, position=position_jitter(w = 0.15,h = 0)) +
+  #   theme_bw() +
+  #   theme(axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size=10), legend.position = "none") +
+  # scale_color_manual(name="Temperature", values=c("3"= "navyblue", "6"="darkgreen", "10"="firebrick4")) + 
+  # facet_wrap(~ph)
+
+  # #Rection norm - too hard to see
+  # ggplot(aes(x=temperature, y=z_score, group=gene_gadmor)) + geom_line(size=.01) +
+  # theme_minimal() + facet_wrap(~ph) +
+  # #scale_x_continuous(breaks=c(1,2,3), labels=c("Ambient", "Moderate", "Low")) +
+  # theme(axis.title.x = element_blank(), plot.title = element_text(size=10), axis.text.x = element_text(hjust = 0.2)) +
+  # xlab("Per treatment mean of normalized counts") + ggtitle("Abundances of DEGs by treatment & relative expression")
+```
+### Search for Uniprot Keywords and GO Terms that are commonly affected, or uniquely affected, by temperature & pCO2 treatments
+
+```{r}
+temp <- enriched.kw.degs.upregulated %>% filter(contrast %!in% c("3vs10.Low-pH", "3vs10.Amb-pH")) %>% filter(!is.na(kw)) %>% filter(background!="Amb-pH")
+
+# Uniprot Keywords that are commonly affected by temperature at high and ambient pCO2, and by pCO2
+temp[temp$kw %in% 
+  temp$kw[duplicated(temp$kw)],] %>%
+  arrange(kw) %>% View()
+
+# Uniprot Keywords that are uniquely affected by temperature at high and ambient pCO2, or by pCO2
+temp %>% filter(kw %!in% 
+                  (temp[temp$kw %in% temp$kw[duplicated(temp$kw)],])$kw) %>% 
+  arrange(contrast) %>% View()
+
+```
+

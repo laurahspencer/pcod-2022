@@ -62,9 +62,9 @@ colnames(counts.summary) <- c("results", samples)
 counts.summary %>% 
   filter(rowSums(across(where(is.numeric)))!=0) %>%
 pivot_longer(-results, names_to = "sample", values_to = "count") %>%
-  mutate(results=factor(results, ordered = T)) %>%
+  mutate(results=fct_rev(factor(results, ordered = T))) %>%
   ggplot(aes(x=sample, y=count, fill=results)) + 
-  geom_bar(position="fill", stat="identity") +
+  geom_bar(position="fill", stat="identity") + scale_fill_brewer(palette="Dark2") +
   theme(axis.text.x = element_text(size=6, angle = 90, vjust = 0.5, hjust=1)) +
   theme(legend.position = "bottom") +
   guides(fill=guide_legend(nrow=2,byrow=TRUE, title = ""))#)
@@ -107,106 +107,6 @@ ph <- counts.treat$ph
 tank <- counts.treat$tank
 treatment <- counts.treat$treatment
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Differential expression
-
-```{r}
-con <- makeContrasts(amb.6 - low.6, levels=design)
-qlf <- glmQLFTest(fit, contrast=con)
-topTags(qlf)
-```
-
-```{r}
-summary(decideTests(qlf))
-plotMD(qlf, cex=0.6)
-```
-```{r}
-tr <- glmTreat(fit, contrast=con, lfc=log2(1.1))
-topTags(tr)
-summary(decideTests(tr))
-plotMD(tr, cex=0.6)
-```
-
-## ANOVA-like testing, contrast includes 3 groups, here temperature
-
-```{r}
-## Ambient pH 
-con <- makeContrasts(
-  amb.3vs6 = amb.3 - amb.6,
-  amb.3vs10 = amb.3 - amb.10,
-  amb.6vs10 = amb.6 - amb.10, levels=design)
-anov <- glmQLFTest(fit, contrast=con)
-topTags(anov)
-summary(decideTests(anov))
-```
-
-```{r}
-## Low pH 
-con <- makeContrasts(
-  low.3vs6 = low.3 - low.6,
-  low.3vs10 = low.3 - low.10,
-  low.6vs10 = low.6 - low.10, levels=design)
-anov <- glmQLFTest(fit, contrast=con)
-topTags(anov)
-summary(decideTests(anov))
-```
-
-
-### Can I do a blocked design, to try to remove any effects of tank 
-
-```{r}
-tank <- counts.treat$tank
-treatment <- counts.treat$treatment
-design <- model.matrix(~tank+treatment)
-View(design)
-design %>% as.data.frame()
-```
-
-
-
-```{r}
-## Create 'targets' and 'Group dataframe, expressing experimental variables for DEG analysis
-pCO2 <- as.numeric(c( 255, 255, 255, 255, 255, 255,
-                      530, 530, 530, 530, 530, 530,
-                      918, 918, 918, 918, 918, 918))
-# Square pCO2 variable
-pCO2_2 <- pCO2 ^ 2
-
-treatment <- c("B","B", "B", "B", "B", "B",
-               "R", "R", "R", "R", "R", "R",
-               "Y", "Y", "Y", "Y", "Y", "Y")
-
-day <- as.numeric(c(7, 7, 7, .5, .5, .5,
-                    7, 7, 7, .5, .5, .5,
-                    7, 7, 7, .5, .5, .5))
-
-targets <- data.frame(pCO2, day, treatment)
-targets$grouping <- paste(targets$pCO2, targets$day, sep = ".")
-
-# The group factor represents the combined levels of an experimental replicate across all variables
-Group <- factor(paste(targets$day, targets$pCO2, sep = "_"))
-
-# Fit multifactorial design matrix
-design_nl <-
-    model.matrix(~ 1 + pCO2_2 + pCO2 + pCO2_2:day + pCO2:day) # Generate multivariate edgeR glm
-
-View(design_nl)
-```
-
-
 
 ### MarineOmics tutorial analysis 
 #### Non-linear effects, interactive effects 
@@ -576,6 +476,8 @@ head(nlms_coeff)
 lms_coeff <- ldply(lms, coef)
 head(lms_coeff)
 
+?lrtest()
+
 ## Apply LRTs to lm's and nlm's for each transcript - should take about 2 minutes
 lrts <- list() # Create list to add LRT results to
 
@@ -866,9 +768,14 @@ nonlinear_no.interaction_degs <- edgeR_LRT_df %>% filter(geneid %!in%
                           c(nonlinear_interaction_Ashaped$geneid, nonlinear_interaction_Vshaped$geneid)) %>%
   filter(geneid %in%  c(lapply(degs, rownames) %>% unlist() %>% unique())) 
 
+# How many are there? 33
+nonlinear_no.interaction_degs$geneid %>% unique() %>% length()
+ 
 # Plot to make sure convex / concave shapes correctly describe the data
 genes <- (nonlinear_no.interaction_degs %>% filter(temperature_2_binom=="Convex"))$geneid %>% unique() 
 genes <- (nonlinear_no.interaction_degs %>% filter(temperature_2_binom=="Concave"))$geneid %>% unique()  
+
+length(genes)
 
 for (i in 1:length(genes)) {
   # Plot individual genes 
@@ -1006,20 +913,27 @@ ggplot(data = nonlinear_interaction_degs_avg,
        aes(
          x = temperature,
          y = value,
-         color = as.factor(ph),
-         group = as.factor(ph)
+         #color = as.factor(ph),
+         color = as.factor(temperature_2_binom),
+         group = as.factor(ph),
+         shape=as.factor(ph)
          )) +
-         geom_path(stat = "identity") +
+         geom_path(stat = "identity",
+                   aes(linetype=as.factor(ph))
+                   ) +
   geom_errorbar(aes(ymin = value - se, ymax = value + se), width = 0) +
-  geom_point() +
+  geom_point(size=2.25) +
   facet_wrap(~temperature_2_binom) +
   theme_classic() +
   xlim(3,10) +
   scale_x_discrete(limits=c(3,6,10)) +
   theme(strip.background = element_blank()) +
-  labs(y = "logCPM", color = "pCO2 treatment", 
+  labs(y = "Expression level (logCPM)", x="Temperature",
+       color = "pCO2 treatment", linetype="pCO2",
        title = "Average expression of genes with non-linear pattern across temperature\nthat is dependent on pCO2") +
-  scale_color_manual(values=c("blue", "red"))
+  scale_color_manual(values=c("blue", "red"), guide="none") +
+  scale_shape_manual(values=c(19, 17), guide="none") +
+  scale_linetype_manual(values=c("solid", "dashed"), labels=c("370"="Ambient", "950"="High"))
 #\nConcave=158 genes; Convex=334 genes\n(edgeR, LRT & DESeq2 consensus sets)
 
 # NOTE - this shows the average expression across all genes by group, which was calculated from averages of each gene by group. could consider another way of showing this data that doesn't simplify as much.   
@@ -1260,27 +1174,34 @@ ggplot(data = edgeR_LRT_linear_degs_df_avg,
        aes(
          x = temperature,
          y = value,
-         color = as.factor(ph),
-         group = as.factor(ph)
+         # color = as.factor(ph),
+         color = as.factor(temperature_binom_linear),
+         group = as.factor(ph),
+         shape=as.factor(ph)
          )) +
-         geom_path(stat = "identity") +
+         geom_path(stat = "identity",
+                   aes(linetype=as.factor(ph))
+                   ) +
   geom_errorbar(aes(ymin = value - se, ymax = value + se), width = 0) +
-  geom_point() +
+  geom_point(size=2.25) +
   facet_wrap(~temperature_binom_linear) +
   theme_classic() +
-  xlim(3,10) +
+  xlim(3,10) + 
   scale_x_discrete(limits=c(3,6,10)) +
   theme(strip.background = element_blank()) +
-  labs(y = "logCPM", color = "pCO2 treatment", 
+  labs(y = "Expression level (logCPM)", x="Temperature", 
+       color = "pCO2 treatment", linetype="pCO2",
        title = "Average expression of genes with linear pattern across temperature\nthat is dependent on pCO2") +
-  scale_color_manual(values=c("blue", "red"))
+  scale_color_manual(values=c("blue", "red"), guide="none") +
+  scale_shape_manual(values=c(19, 17), guide="none") +
+  scale_linetype_manual(values=c("solid", "dashed"), labels=c("370"="Ambient", "950"="High"))
 
 #Negative=1,261 genes; Positive=688 genes (edgeR, LRT & DESeq2 consensus sets)
 ```
 
 ### Enrichment Analysis - linear and nonlinear gene sets
 
-Here I extract 4 lists of Uniprot SPIDs for DAVID enrichment analysis. The 4 gene sets represent those that respond ... 
+Here I extract 6 lists of Uniprot SPIDs for DAVID enrichment analysis. These gene sets represent those that respond ... 
   1) linearly to temperature, increasing with temperature, but slope is dependent on pH    
   2) linearly to temperature, decreasing with temperature, but slope is dependent on pH  
   3) non-linearly to temperature, convex shape in ambient pH but concave in low pH
@@ -1402,7 +1323,7 @@ enriched.bp.linear.nonlinear %>%
 ggplot(aes(y = term_process, x=pattern, col=pattern)) + 
   geom_point(alpha=.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
  facet_wrap(~category,scales="free", nrow = 2) +
-  scale_color_manual(name="Change with temperature", values=c(Decrease="#999999", Increase="#4d4d4d"),
+  scale_color_manual(name="Pattern across temperatures", values=c(Decrease="#2c7bb6", Increase="#d7191c"),
              guide = guide_legend(override.aes = list(size=4))) +
   scale_size("-Log10 P-value", range = c(2,8), #breaks = c(2, 5, 10),
              guide = guide_legend(override.aes = list(col="gray50"))) +
@@ -1492,7 +1413,8 @@ dev.off()
 Uniprot Keywords
 
 ```{r}
-pdf(file="../results/GO-enrichment/KW-nonlinear-enriched-bubble.pdf", height = 3, width = 4.5)
+#pdf(file="../results/GO-enrichment/KW-nonlinear-enriched-bubble.pdf", height = 3, width = 4.5)
+pdf(file="../results/GO-enrichment/KW-nonlinear-enriched-bubble.pdf", height = 3, width = 4)
 enriched.bp.linear.nonlinear %>% 
   filter(category=="UP_KW_BIOLOGICAL_PROCESS") %>% 
   filter(p_value<0.05) %>%
@@ -1502,6 +1424,7 @@ enriched.bp.linear.nonlinear %>%
             by = c("shape", "pattern", "interaction", "genes", "p_value", "count")) %>%  #re-add data
   ungroup() %>% arrange(shape, group, pattern, interaction, p_value) %>% group_by(shape, pattern, interaction) %>% dplyr::slice(1:25) %>% # select the top 25 terms per group
   filter(shape == "nonlinear") %>% ungroup() %>% 
+  filter(interaction == "interaction") %>% ungroup() %>% 
   mutate(group=factor(group, levels=c("interaction_Ashaped","nointeraction_Ashaped", "interaction_Ushaped", "nointeraction_Ushaped")),
          shape=as.character(shape), pattern=as.character(pattern)) %>%
   tidyr::complete(category, pattern, interaction) %>% # add rows for groups that are missing from dataframe
@@ -1510,18 +1433,25 @@ enriched.bp.linear.nonlinear %>%
   #mutate(pattern=as.character(pattern), interaction=as.character(interaction)) %>%
 
   # plot
-ggplot(aes(y = term_process, x=interaction(interaction, pattern), 
-           col=interaction, shape=pattern)) + 
+ggplot(aes(y = term_process, #shape=pattern, 
+#           x=interaction(interaction, pattern), col=interaction)) + # If I also want to show enriched functions in genes where pH affects shape (doesn't add much - just fatty acid and lipid metabolism)
+           x=pattern, col=pattern)) + 
   geom_point(alpha=.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
  facet_wrap(~category,scales="free", nrow = 2) +
-  scale_shape_manual(name="Pattern across temperatures\nin ambient pH", 
-                     labels=c(`Ashaped`="A-shaped", `Ushaped`='V-shaped'),
-                     values=c(`Ashaped`=19, `Ushaped`=17),
-             guide = guide_legend(order = 1, override.aes = list(size=3))) +
-  scale_color_manual(name="Significant pH interaction effect", 
-                     labels=c(`interaction`="Yes", `nointeraction`='No'),
-                     values=c(`interaction`="gray65", `nointeraction`="gray20"),
-             guide = guide_legend(order = 2, override.aes = list(size=3))) +
+  # scale_shape_manual(name="Pattern across temperatures\nin ambient pH", 
+  #                    labels=c(`Ashaped`="A-shaped", `Ushaped`='V-shaped'),
+  #                    values=c(`Ashaped`=19, `Ushaped`=17),
+  #            guide = guide_legend(order = 1, override.aes = list(size=3))) +
+  # scale_color_manual(name="Significant pH interaction effect", 
+  #                    labels=c(`interaction`="Yes", `nointeraction`='No'),
+  #                    values=c(`interaction`="gray65", `nointeraction`="gray20"),
+  #            guide = guide_legend(order = 2, override.aes = list(size=3))) +
+  scale_color_manual(name="Pattern across temperatures", 
+                     labels=c(`Ashaped`="Decrease", `Ushaped`='Increase'),
+#                     values=c(`Ashaped`="gray65", `Ushaped`="gray20"),
+                     values=c(`Ashaped`="#2c7bb6", `Ushaped`="#d7191c"),
+             guide = guide_legend(order = 1, override.aes = list(size=4))) +
+
   scale_size("-Log10 P-value", range = c(2,8), #breaks = c(2, 5, 10),
              guide = guide_legend(override.aes = list(col="gray50"))) +
   scale_x_discrete(drop=T) + #Do drop empty factors for temperature contrasts
@@ -1541,10 +1471,534 @@ ggplot(aes(y = term_process, x=interaction(interaction, pattern),
   ggtitle(NULL) +
   # annotate("text", x = 1, y = -1.5, label = "Decrease with\ntemperature", size=2, col="gray15") +
   # annotate("text", x = 2, y = -1.5, label = "Increase with\ntemperature", size=2, col="gray15") +
-  annotate("text", x = 2.5, y = 14.5, label = "Enriched Uniprot Keywords", size=2.5, col="gray15") +
-  annotate("text", x = 2.5, y = 13.75, label = "Non-linear response to temperature", size=2.5, col="gray15", fontface = 'bold') +
-  annotate("text", x = 2.5, y = 13, label = "by response pattern & pH interaction effect ", size=2.5, col="gray15", fontface = 'italic')
+  annotate("text", x = 1.5, y = 14.5, label = "Enriched Uniprot Keywords", size=2.5, col="gray15") +
+  annotate("text", x = 1.5, y = 13.75, label = "Non-linear response to temperature", size=2.5, col="gray15", fontface = 'bold') +
+  annotate("text", x = 1.5, y = 13, label = "by response pattern & pH interaction effect ", size=2.5, col="gray15", fontface = 'italic')
 dev.off()
 ```
 
+## Differential Exon + Gene Expression Analysis 
+
+
+Import exon count summary. Large percentage of exons (~30%) not counted due to ambiguity 
+
+```{r}
+# Extract sample names for each column from file path 
+samples.exon <- (read_delim(file = "../results/star/featurecounts/featurecounts_exon.summary", col_names = F, show_col_types = FALSE)[1,-1] %>% as.data.frame() %>% t() %>% as.data.frame() %>%
+                            mutate(V1=gsub("/home/lspencer/pcod-2022/aligned/star-gadmor/", "", V1)) %>%
+                            mutate(V1=gsub(".Aligned.sortedByCoord.out.bam", "", V1)))$V1 %>% as.vector()
+
+# Import exon count summary from featurecounts
+counts.exon.summary <- read_delim(file = "../results/star/featurecounts/featurecounts_exon.summary", col_names = F, skip=1)  %>% as.data.frame()
+
+# Add sample names to exon count summary table 
+colnames(counts.exon.summary) <- c("results", samples.exon)
+#ggplotly(
+counts.exon.summary %>% 
+  filter(rowSums(across(where(is.numeric)))!=0) %>%
+pivot_longer(-results, names_to = "sample", values_to = "count") %>%
+  mutate(results=fct_rev(factor(results, ordered = T))) %>%
+  ggplot(aes(x=sample, y=count, fill=results)) + 
+  geom_bar(position="fill", stat="identity") +
+ scale_fill_brewer(palette="Dark2") +
+  theme(axis.text.x = element_text(size=6, angle = 90, vjust = 0.5, hjust=1)) +
+  theme(legend.position = "bottom") +
+  guides(fill=guide_legend(nrow=2,byrow=TRUE, title = ""))#)
+```
+
+## Load counts
+
+```{r}
+counts.exon <- data.frame(read.table("../results/star/featurecounts/featurecounts_exon", header = T, stringsAsFactors = F, fill = FALSE)) %>%
+  mutate(exonID=paste(Geneid, Start, End, sep=".")) %>% select(exonID, everything())
+
+counts.exon <- counts.exon %>% rename_all(~as.character(str_sub(colnames(counts.exon)) %>%
+                            gsub("X.home.lspencer.pcod.2022.aligned.star.gadmor.", "", .) %>%
+                            gsub(".Aligned.sortedByCoord.out.bam", "", .))) %>% 
+  distinct() %>% #for some reason there are 3 identical rows for each exon. Here I remove duplicated rows (determined across all columns)
+  column_to_rownames(var="exonID") 
+#save(counts.exon, file = "../results/star/featurecounts/counts.exon")
+
+remove.list <- c("PCG194", "PCG137")
+counts.exon <- counts.exon[ , -which(names(counts.exon) %in% remove.list)]
+```
+
+### Transpose dataframe so each row = a sample (aka "objects"), and each column = genes (aka "variables") 
+```{r}
+#str(counts.exon) #columns #1-#5 contain extraneous gene info (chr, start, end, strand, length). 
+counts.exon.t <- as.data.frame(t(counts.exon[-1:-6])) #remove extraneous columns, transform data to have each sample a row, each column a gene
+```
+
+## Optional 
+
+### Pre-filtering - remove low-frequency genes 
+
+NOTE: Should i do this? DESeq2 throws out low-frequency genes anyway, BUT other folks do pre-filter. For example in https://doi.org/10.1186/s12864-017-4392-0 "Genes with mean count less than ten across all samples were removed."
+
+```{r}
+keep1 <- colMeans(counts.exon.t, na.rm=TRUE) >= 10 #identify genes with mean count >= 10 across all samples (excluding NAs = 10)
+keep2 <- rowSums( counts.exon >= 30 ) >= 0.1*73 #identify genes with counts>=30 across at minimum 10% of the samples
+keep <- unique(c(names(which(keep1 == T)), names(which(keep2 == T)))) # list of genes meeting one of the two above criteria
+counts.exon.ts <- counts.exon.t[,keep]
+
+print(paste("# exons before filtering:", prettyNum(ncol(counts.exon.t), big.mark=",")))
+print(paste("# exons remaining after pre-filtering:", prettyNum(ncol(counts.exon.ts), big.mark=",")))
+print(paste("# of exons dropped:", prettyNum(ncol(counts.exon.t) - ncol(counts.exon.ts), big.mark=","), sep=" "))
+print(paste("% of fragments remaining after pre-filtering: ", signif(100*sum(counts.exon.ts)/sum(counts.exon.t), digits = 5), "%", sep=""))
+print(paste("Number of unique fragments dropped: ", prettyNum(signif(sum(counts.exon.t)-sum(counts.exon.ts), digits = 5), big.mark=",")))
+print(paste("% of fragments dropped: ", signif(100*(sum(counts.exon.t)-sum(counts.exon.ts))/sum(counts.exon.t), digits = 5), "%", sep=""))
+print(paste("Number of fragments remaining: ", prettyNum(signif(sum(counts.exon.ts), digits = 5), big.mark=",")))
+```
+
+#?filterByExpr()
+
+```{r}
+counts.exon.treat <- counts.exon.ts %>% rownames_to_column("sample") %>%
+  left_join(sample.info[c("tank", "temperature", "ph", "vial_label")], by=c("sample"="vial_label")) %>%
+  mutate(treatment=as.factor(paste(ph, temperature, sep="."))) %>%
+  mutate(ph=gsub("amb", "370", ph)) %>% #estimate ambient = pH 8.0 and pco2 370
+  mutate(ph=gsub("low", "950", ph)) %>% #estimate low pH of 7.6 as pco2 900
+  mutate(ph=as.numeric(as.character(ph)),
+         temperature=as.numeric(as.character(temperature)),
+         treatment=factor(treatment, 
+                          levels=c("amb.6", "low.6", "amb.3", "low.3", "amb.10", "low.10"))) %>% 
+  select(sample, tank, temperature, ph, treatment, everything())
+
+counts.exon.edgeR <- counts.exon.treat %>% column_to_rownames("sample") %>%
+  select(-tank, -temperature, -ph, -treatment) %>%
+  t() %>% as.data.frame()
+
+# double check samples (columns) are in the same order as the samples in the annotated count dataframe. Should = TRUE
+all(colnames(counts.exon.edgeR) == counts.exon.treat$sample)
+
+# Extract vector of treatments
+treatment.exon <- counts.exon.treat$treatment
+```
+
+### MarineOmics tutorial analysis 
+#### Non-linear effects, interactive effects 
+
+```{r}
+# Create a DGEList object 
+y.exon <- DGEList(counts.exon.edgeR, group=treatment.exon, 
+                  genes = left_join(counts.exon.edgeR %>% rownames_to_column("exonID") %>% select(exonID),  #add gene info - to be used later in alternative splicing analysis
+                                    counts.exon[1:6] %>% rownames_to_column("exonID"), by="exonID"))
+                                    
+# TMM normalization
+y.exon <- calcNormFactors(y.exon)
+y.exon$samples #check out the normalization factor column 
+
+# Explore exon data by multi-dimensional scaling plot 
+plotMDS(y.exon)
+
+# More interesting plot 
+points <- c(0,15,1,16,2,17)
+colors <- c("goldenrod1", "goldenrod1", "steelblue1", "steelblue1", "tomato1", "tomato1")
+
+# using top 500 genes (default)
+plotMDS(y.exon, col=colors[treatment.exon], pch=points[treatment.exon], cex=1.4, main="MDS plot, PC1 x PC2\ntop 500 exons only")
+legend("bottomleft", legend=levels(treatment.exon), pch=points, col=colors, ncol=2)
+
+# using all genes
+plotMDS(y.exon, col=colors[treatment.exon], pch=points[treatment.exon], cex=1.4, top=nrow(y.exon$counts), main="MDS plot, PC1 x PC2\nall exons")
+legend("bottomleft", legend=levels(treatment.exon), pch=points, col=colors, ncol=2)
+```
+
+PCoA using code from multiomics tutorial 
+
+```{r}
+# Export pcoa loadings
+dds.pcoa.exon = pcoa(vegdist(t(df_log <- cpm(y.exon, log = TRUE, prior.count = 2)),
+                          method = "euclidean") / 1000)
+
+# Create df of MDS vector loading
+scores.exon <- dds.pcoa.exon$vectors
+
+## Plot pcoa loadings of each sample, groouped by time point and pCO2 treatment
+
+# Calculate % variation explained by each eigenvector
+percent.exon <- dds.pcoa.exon$values$Eigenvalues
+cumulative_percent_variance.exon <- (percent.exon / sum( percent.exon)) * 100
+
+# Prepare information for pcoa plot, then plot
+#colors <- c("goldenrod1", "goldenrod1", "steelblue1", "steelblue1", "tomato1", "tomato1")
+
+par(mfrow = c(1, 1))
+plot(
+  scores.exon[, 1],
+  scores.exon[, 2],
+  cex = .5,
+  cex.axis = 1,
+  cex.lab = 1.25,
+  xlab = paste("PC1, ", round(cumulative_percent_variance.exon[1], 2), "%"),
+  ylab = paste("PC2, ", round(cumulative_percent_variance.exon[2], 2), "%")
+  )
+
+# Add visual groupings to pcoa plot
+ordihull(
+  scores.exon,
+  treatment.exon,
+  border = NULL,
+  lty = 2,
+  lwd = .5,
+  label = F,
+  col = colors,
+  draw = "polygon",
+  alpha = 100,
+  cex = .5
+  )
+
+ordispider(scores.exon, treatment.exon, label = F) # Vectors connecting samples in same ph x treatment group
+#ordilabel(scores, cex = 0.4) # Label sample IDs
+```
+
+Create design matrix 
+```{r}
+temperature.exon <- counts.exon.treat$temperature
+ph.exon <- counts.exon.treat$ph
+
+design.exon <- model.matrix(~temperature.exon + as.factor(ph.exon) + temperature.exon:as.factor(ph.exon))
+colnames(design.exon) <- c("(Intercept)", "temperature", "ph", "temperature:ph") #fix column names 
+design.exon %>% head()
+
+# Estimate dispersions 
+y.exon <- estimateDisp(y.exon, design.exon, robust=TRUE)
+y.exon$common.dispersion
+plotBCV(y.exon)
+```
+
+Differentially expressed exons among temperature (continuous variable), ph (factor variable) and interaction among the two 
+
+Result: 
+
+- Large linear effect of temperature on exon expression. Of the 71,956 exons examined 10,087 significantly decrease with temperature (negative slope), and 9,327 significantly increase with temperature (positive slope)
+- No effect of pH (binary, since used as factors), nor does pH interact with temperature to affect exon expression
+
+```{r}
+fit.exon <- glmQLFit(y.exon, design.exon, robust=TRUE)
+plotQLDisp(fit.exon)
+
+# Test for effect of temperature as a continuous variable 
+qlf.exon.temp <- glmQLFTest(fit.exon, coef=2)
+is.de.exon.temp <- decideTests(qlf.exon.temp, adjust.method = "fdr", p.value=0.05)
+summary(is.de.exon.temp) #loads of differentially expressed exons among temperature
+plotMD(qlf.exon.temp, cex=0.6)
+
+# Check out top 12 differentially expressed exons among temperature
+topTags(qlf.exon.temp, n = 16) %>% as.data.frame() %>% 
+  left_join(
+    counts.exon %>% mutate(exonID=paste(Geneid, Start, End, sep="."))) %>%
+  pivot_longer(cols = starts_with("PCG"), names_to = "sample", values_to = "count") %>%
+  left_join(sample.info[c("tank", "temperature", "ph", "vial_label")], by=c("sample"="vial_label")) %>%
+  # group_by(exonID, temperature, ph) %>% dplyr::summarize(mean=mean(count)) %>% 
+  mutate(exonID=as.factor(exonID)) %>%
+  ggplot(aes(x=temperature, y=log(count), color=temperature:ph)) + 
+  geom_point() + theme_minimal() + facet_wrap(~exonID, scales = "free")
+
+# Test for effect of pH as a factor
+qlf.exon.ph <- glmQLFTest(fit.exon, coef=3)
+is.de.exon.ph <- decideTests(qlf.exon.ph, adjust.method = "fdr", p.value=0.05)
+summary(is.de.exon.ph) #no differentially expressed exon among pH
+
+# Test for interaction effect between temperature (continuous variable) and ph (factor variable)
+qlf.exon.interact <- glmQLFTest(fit.exon, coef=4)
+is.de.exon.interact <- decideTests(qlf.exon.interact, adjust.method = "fdr", p.value=0.05)
+summary(is.de.exon.interact) #No interaction between pH and temp 
+```
+
+Effect of temperature on differential exon usage 
+
+```{r}
+
+# Effect of temperature^2 on exon usage
+temperature.splice <- diffSpliceDGE(fit.exon, coef=2, geneid="Geneid", exonid="Start")
+#(temperature.splice.sign <- topSpliceDGE(temperature.splice, test="Simes", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1)) #Simes' method, 45 genes with FDR < 0.1
+(temperature.splice.sign <- topSpliceDGE(temperature.splice, test="gene", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1)) #F-tests, 117 genes with FDR < 0.1 
+
+# Plot top 20 genes with evidence of temperature affecting alternative exon usage 
+for (i in 1:20) {
+  plotSpliceDGE(temperature.splice, geneid=temperature.splice.sign$Geneid[i], genecol="Geneid")
+}
+
+# Gene Enrichment Analysis in DAVID
+
+# List of differentially spliced genes 
+temperature.splice.sign %>% 
+  left_join(
+    gadMor.blast.GO[,c("gene_gadmor", "spid", "evalue", "protein_names",
+                       "gene_ontology_biological_process")], by=c("Geneid"="gene_gadmor")) %>% 
+  filter(!is.na(spid)) %>% #View()
+  dplyr::select(spid) %>%  unlist() %>% as.vector() %>% write_clip(allow_non_interactive = TRUE)
+
+# background list of genes 
+topSpliceDGE(temperature.splice, test="gene", n=nrow(nl_temperature_2.splice$genes)) %>% # all genes 
+    left_join(
+    gadMor.blast.GO[,c("gene_gadmor", "spid")], by=c("Geneid"="gene_gadmor")) %>% 
+  filter(!is.na(spid)) %>%  
+  dplyr::select(spid) %>%  unlist() %>% as.vector() %>% write_clip(allow_non_interactive = TRUE)
+
+```
+
+Enriched biological process GO terms
+```
+	GOTERM_BP_DIRECT	intermediate filament cytoskeleton organization	RT		3	3.0	6.1E-3	24.5	1.0E0
+	GOTERM_BP_DIRECT	glutathione metabolic process	RT		3	3.0	3.8E-2	9.6	1.0E0
+	GOTERM_BP_DIRECT	response to stimulus	RT		4	4.0	4.3E-2	5.1	1.0E0
+	GOTERM_BP_DIRECT	cell-cell signaling	RT		3	3.0	7.6E-2	6.5	1.0E0
+	GOTERM_BP_DIRECT	adenylate cyclase-activating adrenergic receptor signaling pathway	RT		2	2.0	9.1E-2	21.0	1.0E0
+```
+
+Enriched Uniprot Keywords 
+```
+	UP_KW_BIOLOGICAL_PROCESS	Lipid transport	RT		4	4.0	5.7E-2	4.4	1.0E0
+	UP_KW_BIOLOGICAL_PROCESS	Transport	RT		18	17.8	7.8E-2	1.5	1.0E0
+	UP_KW_BIOLOGICAL_PROCESS	Sensory transduction	RT		4	4.0	8.4E-2	3.8	1.0E0
+```
+
+NOT SURE WHAT THE DIFFERENTIAL EXON EXPRESSION ANALYSIS MEANS, particularly because I have 3 temperature treatments, which are treated as quantitative variables in the fitted model. Is it a regression analysis? 
+
+# Examine nonlinear effects of temperature on exon expression, and interaction with pH 
+
+```{r}
+temperature.exon_2 <- temperature.exon^2 #square temperature variable, for potential non-linear effects of temp. on exon expression
+
+# Fit multifactorial design matrix
+design.exon <-
+  model.matrix(
+    ~ 1 + temperature.exon_2 + temperature.exon + ph.exon + temperature.exon_2:ph.exon + temperature.exon:ph.exon) # Generate multivariate edgeR glm
+design.exon %>% head()
+
+# Estimate dispersion coefficients
+y.exon <- estimateDisp(y.exon, design.exon, robust=TRUE)
+y.exon$common.dispersion
+plotBCV(y.exon)
+
+### Fit quasi-likelihood, neg binom linear regression with multifactorial design matrix
+fit.exon <- glmQLFit(y.exon, design.exon, robust=TRUE)
+head(fit.exon$coefficients)
+plotQLDisp(fit.exon)
+```
+
+### Test for effects of different treatments 
+
+```{r}
+# effect of temperature^2
+# estimate sign. degs 
+nl_temperature_2.exon <-
+    glmQLFTest(fit.exon,
+    coef = 2,
+    contrast = NULL,
+    poisson.bound = FALSE) # Estimate significant DEGs
+DEGs_nl_temperature_2.exon <-
+  decideTestsDGE(nl_temperature_2.exon, adjust.method = "fdr", p.value = 0.05)
+summary(DEGs_nl_temperature_2.exon)
+plotMD(nl_temperature_2.exon, cex=0.6)
+
+
+# effect of temperature
+# estimate sign. degs 
+nl_temperature.exon <-
+    glmQLFTest(fit.exon,
+    coef = 3,
+    contrast = NULL,
+    poisson.bound = FALSE) # Estimate significant DEGs
+DEGs_nl_temperature.exon <-
+  decideTestsDGE(nl_temperature.exon, adjust.method = "fdr", p.value = 0.05)
+summary(DEGs_nl_temperature.exon)
+plotMD(nl_temperature.exon, cex=0.6)
+
+
+# effect of low pH relative to ambient pH
+# estimate sign. degs 
+nl_ph.exon <-
+    glmQLFTest(fit.exon,
+    coef = 4,
+    contrast = NULL,
+    poisson.bound = FALSE) # Estimate significant DEGs
+DEGs_nl_ph.exon <-
+  decideTestsDGE(nl_ph.exon, adjust.method = "fdr", p.value = 0.05)
+summary(DEGs_nl_ph.exon)
+plotMD(nl_ph.exon, cex=0.6)
+
+
+# interaction between temperature_2 & pH
+# estimate sign. degs 
+nl_interaction_2.exon <-
+    glmQLFTest(fit.exon,
+    coef = 5,
+    contrast = NULL,
+    poisson.bound = FALSE) # Estimate significant DEGs
+DEGs_nl_interaction_2.exon <-
+  decideTestsDGE(nl_interaction_2.exon, adjust.method = "fdr", p.value = 0.05)
+summary(DEGs_nl_interaction_2.exon)
+plotMD(nl_interaction_2.exon, cex=0.6)
+
+
+# interaction between temperature & pH
+# estimate sign. degs 
+nl_interaction.exon <-
+    glmQLFTest(fit.exon,
+    coef = 6,
+    contrast = NULL,
+    poisson.bound = FALSE) # Estimate significant DEGs
+DEGs_nl_interaction.exon <-
+  decideTestsDGE(nl_interaction.exon, adjust.method = "fdr", p.value = 0.05)
+summary(DEGs_nl_interaction.exon)
+plotMD(nl_interaction.exon, cex=0.6)
+```
+
+Alternative splicing analysis - differential exon expression, nonlinear model 
+
+For each coefficient in the model (i.e. temperature_2, temperature, pH_2 ... etc.), identify differential exon usage with two statistical methods 
+
+```{r}
+# Effect of temperature^2 on exon usage
+nl_temperature_2.splice <- diffSpliceDGE(fit.exon, coef=2, geneid="Geneid", exonid="Start")
+topSpliceDGE(nl_temperature_2.splice, test="Simes", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1) #Simes' method, no genes with FDR < 0.1
+topSpliceDGE(nl_temperature_2.splice, test="gene", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1) #F-tests, 4 genes with FDR < 0.1 
+
+par(mfrow=c(2,2))
+plotSpliceDGE(nl_temperature_2.splice, geneid="LOC115539697", genecol="Geneid")
+plotSpliceDGE(nl_temperature_2.splice, geneid="col9a2", genecol="Geneid")
+plotSpliceDGE(nl_temperature_2.splice, geneid="phb2", genecol="Geneid")
+plotSpliceDGE(nl_temperature_2.splice, geneid="cdc5l", genecol="Geneid")
+
+# Effect of temperature on exon usage
+nl_temperature.splice <- diffSpliceDGE(fit.exon, coef=3, geneid="Geneid", exonid="Start")
+topSpliceDGE(nl_temperature.splice, test="Simes", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1) # No genes
+topSpliceDGE(nl_temperature.splice, test="gene", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1) # 5 genes with FDR < 0.1
+
+# Plot 
+plotSpliceDGE(nl_temperature_2.splice, geneid="fbl", genecol="Geneid") # first 3 exons higher expression 
+
+# Effect of ph on exon usage
+nl_ph.splice <- diffSpliceDGE(fit.exon, coef=4, geneid="Geneid", exonid="Start")
+topSpliceDGE(nl_ph.splice, test="Simes", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1) #none
+topSpliceDGE(nl_ph.splice, test="gene", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1) #none
+
+# Interactive effect of temperature^2 and ph on exon usage
+nl_interaction_2.splice <- diffSpliceDGE(fit.exon, coef=5, geneid="Geneid", exonid="Start")
+topSpliceDGE(nl_interaction_2.splice, test="Simes", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1) #4 
+topSpliceDGE(nl_interaction_2.splice, test="gene", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1) #5 
+
+par(mfrow=c(3,2))
+plotSpliceDGE(nl_temperature_2.splice, geneid="fbxo32", genecol="Geneid")
+plotSpliceDGE(nl_temperature_2.splice, geneid="ddit4", genecol="Geneid")
+plotSpliceDGE(nl_temperature_2.splice, geneid="LOC115542473", genecol="Geneid")
+plotSpliceDGE(nl_temperature_2.splice, geneid="LOC115529695", genecol="Geneid")
+plotSpliceDGE(nl_temperature_2.splice, geneid="LOC115531396", genecol="Geneid")
+
+# Interactive effect of temperature and ph on exon usage
+nl_interaction.splice <- diffSpliceDGE(fit.exon, coef=5, geneid="Geneid", exonid="Start")
+topSpliceDGE(nl_interaction.splice, test="Simes", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1) #4, same as interaction with temperature_2
+topSpliceDGE(nl_interaction.splice, test="gene", n=nrow(nl_temperature_2.splice$genes)) %>% filter(FDR<0.1) #5, same as interaction with temperature_2
+```
+
+
+
+```{r}
+"../results/star/featurecounts/featurecounts_exon"
+
+diffSpliceDGE()
+topSpliceDGE()
+plotSpliceDGE()
+```
+
+
+
+
+
+
+
+
+
+
+
+# BONEYARD 
+
+## Differential expression analysis using my own code based on edgeR tutorial - 
+
+```{r}
+con <- makeContrasts(amb.6 - low.6, levels=design)
+qlf <- glmQLFTest(fit, contrast=con)
+topTags(qlf)
+```
+
+```{r}
+summary(decideTests(qlf))
+plotMD(qlf, cex=0.6)
+```
+
+```{r}
+tr <- glmTreat(fit, contrast=con, lfc=log2(1.1))
+topTags(tr)
+summary(decideTests(tr))
+plotMD(tr, cex=0.6)
+```
+
+## ANOVA-like testing, contrast includes 3 groups, here temperature
+
+```{r}
+## Ambient pH 
+con <- makeContrasts(
+  amb.3vs6 = amb.3 - amb.6,
+  amb.3vs10 = amb.3 - amb.10,
+  amb.6vs10 = amb.6 - amb.10, levels=design)
+anov <- glmQLFTest(fit, contrast=con)
+topTags(anov)
+summary(decideTests(anov))
+```
+
+```{r}
+## Low pH 
+con <- makeContrasts(
+  low.3vs6 = low.3 - low.6,
+  low.3vs10 = low.3 - low.10,
+  low.6vs10 = low.6 - low.10, levels=design)
+anov <- glmQLFTest(fit, contrast=con)
+topTags(anov)
+summary(decideTests(anov))
+```
+
+
+### Can I do a blocked design, to try to remove any effects of tank 
+
+```{r}
+tank <- counts.treat$tank
+treatment <- counts.treat$treatment
+design <- model.matrix(~tank+treatment)
+View(design)
+design %>% as.data.frame()
+```
+
+
+
+```{r}
+## Create 'targets' and 'Group dataframe, expressing experimental variables for DEG analysis
+pCO2 <- as.numeric(c( 255, 255, 255, 255, 255, 255,
+                      530, 530, 530, 530, 530, 530,
+                      918, 918, 918, 918, 918, 918))
+# Square pCO2 variable
+pCO2_2 <- pCO2 ^ 2
+
+treatment <- c("B","B", "B", "B", "B", "B",
+               "R", "R", "R", "R", "R", "R",
+               "Y", "Y", "Y", "Y", "Y", "Y")
+
+day <- as.numeric(c(7, 7, 7, .5, .5, .5,
+                    7, 7, 7, .5, .5, .5,
+                    7, 7, 7, .5, .5, .5))
+
+targets <- data.frame(pCO2, day, treatment)
+targets$grouping <- paste(targets$pCO2, targets$day, sep = ".")
+
+# The group factor represents the combined levels of an experimental replicate across all variables
+Group <- factor(paste(targets$day, targets$pCO2, sep = "_"))
+
+# Fit multifactorial design matrix
+design_nl <-
+    model.matrix(~ 1 + pCO2_2 + pCO2 + pCO2_2:day + pCO2:day) # Generate multivariate edgeR glm
+
+View(design_nl)
+```
 

@@ -84,24 +84,74 @@ pcod %>% filter(measurement=="Height") %>%
 ```{r}
 # Examine stage-specific length data by temperature and pH 
 pcod %>% filter(measurement=="Length") %>% 
-  ggplot(aes(x=temperature , y=value_mm, fill=p_h)) + 
-  #geom_violin() + 
+  mutate(p_h=as.factor(case_when(p_h=="amb" ~ "Ambient pCO2", TRUE ~ "High pCO2"))) %>%
+  ggplot(aes(x=temperature , y=value_mm, color=temperature)) + 
   geom_boxplot() +
-  theme_minimal() + 
+  geom_point(size=2, position=position_jitter(w = 0.15,h = 0)) +
+  theme_bw() + 
   ggtitle("Length") + xlab("Temperature") + ylab("Length") +
-  scale_fill_manual(values=c("blue", "red"))
+  scale_color_manual(name="Temperature", 
+                    values=c("3"= "navyblue", "6"="darkgreen", "10"="firebrick4")) + 
+  facet_wrap(~p_h)
 
 # Examine stage-specific height data by temperature and pH 
 pcod %>% filter(measurement=="Height") %>% 
-  ggplot(aes(x=temperature , y=value_mm, fill=p_h)) + 
-  #geom_violin() + 
+  mutate(p_h=as.factor(case_when(p_h=="amb" ~ "Ambient pCO2", TRUE ~ "High pCO2"))) %>%
+  ggplot(aes(x=temperature , y=value_mm, color=temperature)) + 
   geom_boxplot() +
-  theme_minimal() + 
+  geom_point(size=2, position=position_jitter(w = 0.15,h = 0)) +
+  theme_bw() + 
   ggtitle("Height") + xlab("Temperature") + ylab("Height") +
-  scale_fill_manual(values=c("blue", "red"))
+  scale_color_manual(name="Temperature", 
+                    values=c("3"= "navyblue", "6"="darkgreen", "10"="firebrick4")) + 
+  facet_wrap(~p_h)
+
+# Examine stage-specific height/length by temperature and pH 
+pcod %>%
+  pivot_wider(names_from = "measurement", values_from = "value_mm") %>%
+  filter(file!="Pcod_OA_051622_3.2x_T17_rep0002.tif") %>%
+  mutate(p_h=as.factor(case_when(p_h=="amb" ~ "Ambient pCO2", TRUE ~ "High pCO2"))) %>%
+  ggplot(aes(x=temperature , y=Height/Length, color=temperature)) + 
+  geom_boxplot() +
+  geom_point(size=2, position=position_jitter(w = 0.15,h = 0)) +
+  theme_bw() + 
+  ggtitle("Height/Length") + xlab("Temperature") + ylab("Height/Length") +
+  scale_color_manual(name="Temperature", 
+                    values=c("3"= "navyblue", "6"="darkgreen", "10"="firebrick4")) + 
+  facet_wrap(~p_h)
+
 ```
 
 ```{r}
+# Examine distribution of height/length ratio
+pcod%>%pivot_wider(names_from = "measurement", values_from = "value_mm") %>%
+  ggplot(aes(x=Height/Length)) + geom_histogram(color="black", fill="white") #one outlier, "Pcod_OA_051622_3.2x_T17_rep0002.tif"
+
+ratio <- pcod%>%pivot_wider(names_from = "measurement", values_from = "value_mm") %>% 
+  filter(file!="Pcod_OA_051622_3.2x_T17_rep0002.tif") %>%
+  mutate(ratio=Height/Length)
+
+shapiro.test(ratio$ratio) #fairly normally distributed 
+
+# Effect of treatment on height/length ratio? 
+summary(aov(Height/Length ~ temperature*p_h, ratio))
+(CI.tukey <- TukeyHSD(aov(Height/Length ~ temperature*p_h, ratio)))
+
+# Which treatments differ in their ratio of height / length? 
+CI.tukey$`temperature:p_h` %>% as.data.frame() %>% clean_names() %>% filter(p_adj<0.05)
+
+# 6C-Ambient pH reared fish have larger height/length (i.e. are "fatter") than all other treatments except for 3-Ambient. 
+
+ggplot(ratio, aes(x=Length, y=Height)) + geom_point(aes(color=interaction(temperature,p_h))) + theme_minimal() + 
+  geom_smooth(method = "lm", color="gray50") +
+  scale_color_manual(values=c("3.amb"= "navyblue", "3.low"="royalblue1","6.amb"="darkgreen",
+                              "6.low"="yellow3","10.amb"="firebrick4", "10.low"="sienna2"))
+
+# How many samples per treatment in this data?
+ratio %>% group_by(temperature, p_h) %>% tally()
+```
+```{r}
+# Effect of treatment on height? 
 summary(aov(value_mm ~ temperature*p_h, pcod[pcod$measurement=="Height",]))
 TukeyHSD(aov(value_mm ~ temperature*p_h, pcod[pcod$measurement=="Height",]))
 ```
@@ -118,6 +168,38 @@ write_csv(pcod, file="../data/size_data_annotated.csv", col_names = TRUE)
 pcod %>% filter(measurement=="Length") %>% filter(date_collected == "5/16/22") %>% 
   write_clip()
 ```
+
+Rerun height/length analysis on just fish used in RNASeq analysis 
+
+```{r}
+#load(file="../data/sample.info")
+
+(ratio.rnaseq <- pcod%>%pivot_wider(names_from = "measurement", values_from = "value_mm") %>% 
+  filter(file!="Pcod_OA_051622_3.2x_T17_rep0002.tif") %>%
+  mutate(ratio=Height/Length) %>% 
+  filter(file %in% sample.info$photo_file))
+
+
+# Examine stage-specific height/length by temperature and pH 
+ratio.rnaseq %>%
+  ggplot(aes(x=temperature , y=ratio, fill=p_h)) + 
+  #geom_violin() + 
+  geom_boxplot() +
+  theme_minimal() + 
+  ggtitle("Height/Length") + xlab("Temperature") + ylab("Height") +
+  scale_fill_manual(values=c("blue", "red"))
+
+# Examine distribution of height/length ratio
+ratio.rnaseq %>%
+  ggplot(aes(x=ratio)) + geom_histogram(color="black", fill="white")
+
+shapiro.test(ratio.rnaseq$ratio) #normally distributed 
+
+# Effect of treatment on height/length ratio? 
+summary(aov(ratio ~ temperature*p_h, ratio.rnaseq)) #no effect
+(CI.tukey <- TukeyHSD(aov(ratio ~ temperature*p_h, ratio.rnaseq))) 
+```
+
 
 ```{r}
 ## read in and plot sizes selected for RNAseq 
