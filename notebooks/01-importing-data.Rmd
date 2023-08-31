@@ -158,11 +158,11 @@ print(paste("Total counts, all samples:", prettyNum(sum(colSums(counts %>% dplyr
 #print(paste("Counts for", colnames(counts %>% select(contains("PCG"))), ":",  prettyNum(colSums(counts %>% select(contains("PCG"))), big.mark = ","), sep=" "))
 
 #inspect total counts by sample
- ggplotly(
+# ggplotly(
    ggplot(data.frame(colSums(counts %>% dplyr::select(contains("PCG")))) %>% 
             dplyr::rename(count.total = 1) %>% rownames_to_column(var="sample")) + 
      geom_bar(aes(x=sample, y=count.total), stat = "identity") + ggtitle("Total count by sample") + 
-              theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())) 
+              theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())#) 
 ```
 
 ## OPTIONAL: FILTER WHOLE SAMPLES. 
@@ -238,14 +238,15 @@ save(counts.ts, file = "../results/counts.ts")
 
 ```{r}
 # Plot distribution of unfiltered read counts across all samples 
-ggplotly(ggplot(data = data.frame(rowMeans(counts)),
+#ggplotly(
+ggplot(data = data.frame(rowMeans(counts)),
        aes(x = rowMeans.counts.)) +
   geom_histogram(fill = "grey") +
   xlim(1, 500) +
   theme_classic() +
   labs(title = "Distribution of unfiltered reads") +
   labs(y = "Density", x = "Raw read counts",
-  title = "Read count distribution: untransformed, unnormalized, unfiltered\n(execept to remove 0's)"))
+  title = "Read count distribution: untransformed, unnormalized, unfiltered\n(execept to remove 0's)")#)
 ```
 
 
@@ -334,7 +335,7 @@ gadMor.blast.GO <- left_join(gadMor.blast, read_delim(file = "../references/gadM
 save(gadMor.blast.GO, file = "../references/gadMor.blast.GO")
 load(file = "../references/gadMor.blast.GO")
 
-View(gadMor.blast.GO)
+#View(gadMor.blast.GO)
 ```
 
 ### Annotate gene counts dataframe
@@ -364,10 +365,6 @@ right_join(
 ```{r}
 read_delim(file = "../references/genomic.gff", delim = "\t", col_names = F, skip = 8) %>% 
   mutate(X3=as.factor(X3)) %>% filter(X3=="gene")
-```
-
-```{r}
-View(gadMor.blast.GO)
 ```
 
 ```{r}

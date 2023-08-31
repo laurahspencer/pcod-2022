@@ -38,7 +38,7 @@ lapply(all.packages, FUN = function(X) {
 })
 
 # Github packages 
-install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
+#install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
 library(pairwiseAdonis)
 
 ```
@@ -82,19 +82,12 @@ counts.ts %>% head()
 ```
 
 ```{r}
-counts.treat <- counts.ts %>% rownames_to_column("sample") %>%
-  left_join(sample.info[c("tank", "temperature", "ph", "vial_label")], by=c("sample"="vial_label")) %>%
-  mutate(treatment=as.factor(paste(ph, temperature, sep="."))) %>%
-  mutate(ph=gsub("amb", "370", ph)) %>% #estimate ambient = pH 8.0 and pco2 370
-  mutate(ph=gsub("low", "950", ph)) %>% #estimate low pH of 7.6 as pco2 900
-  mutate(ph=as.numeric(as.character(ph)),
-         temperature=as.numeric(as.character(temperature)),
-         treatment=factor(treatment, 
-                          levels=c("amb.6", "low.6", "amb.3", "low.3", "amb.10", "low.10"))) %>% 
-  select(sample, tank, temperature, ph, treatment, everything())
+# Load counts.treat object created in notebook 02
+load(file = "../data/counts.treat")
 
 counts.edgeR <- counts.treat %>% column_to_rownames("sample") %>%
-  select(-tank, -temperature, -ph, -treatment) %>%
+  select(-genes.length) %>% #remove genes associated with fish length
+  select(-tank, -temperature, -ph, -treatment) %>% #get rid of extraneous info
   t() %>% as.data.frame()
 
 # double check samples (columns) are in the same order as the samples in the annotated count dataframe. Should = TRUE
@@ -108,7 +101,7 @@ tank <- counts.treat$tank
 treatment <- counts.treat$treatment
 ```
 
-### MarineOmics tutorial analysis 
+### Analysis based on MarineOmics tutorial analysis 
 #### Non-linear effects, interactive effects 
 
 ```{r}
@@ -450,7 +443,7 @@ ggplot(data = filter(tab_exp_avg, temperature_2_sig == "Yes"),
 
 ```{r}
 filter(tab_exp_df, temperature_2_sig == "Yes") %>% 
-  select(geneid) %>% distinct(geneid) %>% nrow() #1000
+  select(geneid) %>% distinct(geneid) %>% nrow() #458
 ```
 Determine whether it is more probable that gene's expression is linear or non-linear relative to a continuous predictor. We can calculate this relative probability using a likelihood ratio test (LRT). In the code chunk below, we will fit linear and 2nd order non-linear models to the expression of each gene before applying LRTs to each transcript. 
 
@@ -475,8 +468,6 @@ head(nlms_coeff)
 # Output lm coefficients into dataframe
 lms_coeff <- ldply(lms, coef)
 head(lms_coeff)
-
-?lrtest()
 
 ## Apply LRTs to lm's and nlm's for each transcript - should take about 2 minutes
 lrts <- list() # Create list to add LRT results to
@@ -539,7 +530,7 @@ ggplot(data = LRT_filt_df,
   theme(strip.background = element_blank()) +
   labs(y = "Avg logCPM", title = "Non-linear changes in GE output by LRTs")
 ```
-### How many genes are identified as having non-linear expression patterns according to the LRT tests? 
+### How many genes are identified as having non-linear expression patterns according to the LRT tests? 1389
 
 ```{r}
 nrow(as.data.frame(unique(LRT_filt_df$geneid)))
@@ -564,12 +555,259 @@ ggplot(data = edgeR_LRT_df,
   theme(strip.background = element_blank()) +
   labs(y = "Avg logCPM", title = "Non-linear changes in GE output by edgeR & LRTs")
 ```
-### How many genes are identified as having non-linear expression according to both edgeR and LRT? 527 
+
+### How many genes are identified as having non-linear expression according to both edgeR and LRT and also a DEG? 287 
 
 ```{r}
-edgeR_LRT_df %>% select(geneid) %>% distinct() %>% nrow()
+edgeR_LRT_df %>% select(geneid) %>%
+  filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) %>% #filter for only DEGs from DESeq2
+  distinct() %>% nrow()
+```
+```{r}
+# Filter down df containing sign. non-linear genes (from edger AND LRT) for only those with sign. interaction betwen temp^2 and pH AND are DEGs from DESeq2
+nonlinear_df <- edgeR_LRT_df %>%
+  filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) #filter for only DEGs from DESeq2
+
+nonlinear_df$gene_id_ph <- paste(nonlinear_df$geneid,
+                                           nonlinear_df$ph,
+                                           sep = "_")
+
+# Add annotation annotation information 
+nonlinear_df <- nonlinear_df %>%
+               left_join(gadMor.blast.GO[c("gene_gadmor", "protein_names", "spid")],
+                         by=c("geneid"="gene_gadmor"))
+
+# How many genes have nonlinear expression
+nonlinear_df %>% distinct(geneid) %>% nrow()
+```
+```{r}
+nonlinear_df %>% filter(temperature_2_binom=="Concave") %>% distinct(geneid) #how many concave pattern?
+nonlinear_df %>% filter(temperature_2_binom=="Convex") %>% distinct(geneid) #how many convex pattern?
 ```
 
+
+```{r}
+# Average logCPM across different groups according to temperature^2 estimate and ph
+nonlinear_degs_avg <- 
+  summarySE(measurevar = "value",
+            groupvars = c("ph", "temperature", "temperature_2_binom"),
+            data = nonlinear_df)  %>%
+  mutate(temperature_2_binom = factor(ifelse(temperature_2_binom == "Concave", "V-shaped in ambient", "A-shaped in ambient")))
+
+# Plot 
+pdf(file="../results/edgeR/Nonlinear-response-genes-plot.pdf", height = 2.75, width = 3)
+ggplot(data = nonlinear_degs_avg %>%
+         filter(ph==370), 
+       aes(
+         x = temperature,
+         y = value,
+         #color = as.factor(ph),
+         color = as.factor(temperature_2_binom),
+         group = as.factor(temperature_2_binom)#,
+         #shape=as.factor(ph)
+         )) +
+         geom_path(stat = "identity",
+                   aes(group=as.factor(temperature_2_binom))
+                   #aes(linetype=interaction(as.factor(ph):as.factor(temperature_2_binom)))
+                   ) +
+  geom_errorbar(aes(ymin = value - se, ymax = value + se), width = 0) +
+  geom_point(size=2.25) +
+  #facet_wrap(~temperature_2_binom) +
+  theme_classic() +
+  #xlim(3,10) + 
+  #ylim(3.25,5) +
+  scale_x_discrete(limits=c(3,6,10)) +
+  theme(strip.background = element_blank()) +
+  ggtitle(NULL) + #, "Average expression of genes with non-linear pattern across temperature\nthat is dependent on pCO2"
+  labs(y = NULL, x=NULL)  +
+  scale_color_manual(values=c(Increase="darkgreen", Decrease="purple4", 
+                              `V-shaped in ambient`=lighten("darkgreen", 0.45), 
+                              `A-shaped in ambient`=lighten("purple4", 0.45)), guide="none") #+
+  # scale_shape_manual(values=c(19, 17), guide="none") +
+  # scale_linetype_manual(values=c("solid", "solid", "dashed", "dashed"), 
+  #                       #limits=c("370:Decrease","950:Decrease"),
+  #                       # labels=c("370:Decrease"="Ambient pCO2", 
+  #                       #          "370:Increase"=NA, "950:Increase"=NA,
+  #                       #          "950:Decrease"="High pCO2")
+  #                       guide="none") #+
+#  guides(colour = guide_legend(order=1))
+dev.off()
+
+# NOTE - this shows the average expression across all genes by group, which was calculated from averages of each gene by group. could consider another way of showing this data that doesn't simplify as much.   
+```
+```{r}
+nonlinear.4David <- list(
+  
+  "Convex" = 
+  nonlinear_df %>% filter(temperature_2_binom=="Convex") %>% distinct(geneid) %>%
+  left_join(gadMor.blast.GO[c("gene_gadmor", "protein_names", "spid")], #annotate with blast results
+                         by=c("geneid"="gene_gadmor")) %>%
+  dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector(),
+  
+  "Concave" = 
+  nonlinear_df %>% filter(temperature_2_binom=="Concave") %>% distinct(geneid) %>%
+  left_join(gadMor.blast.GO[c("gene_gadmor", "protein_names", "spid")], #annotate with blast results
+                         by=c("geneid"="gene_gadmor")) %>%
+  dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector()
+
+  ) 
+
+# Write tab-delimited file with each column containing Uniprot IDs for each set of DEGs 
+write_delim(x = ldply(nonlinear.4David, rbind) %>% t() %>% as.data.frame(), delim = "\t", col_names = F, na="", 
+            file = "../results/GO-enrichment/nonlinear-4David.tab")
+            
+# BACKGROUND - all genes submitted to nonlinear anlaysis
+gadMor.blast.GO %>% filter(gene_gadmor %in% rownames(counts.edgeR[-1,])) %>%
+  dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector() %>%
+  write_clip(allow_non_interactive = TRUE)
+```
+
+#### Read in enriched biological functions for all patterns
+
+```{r}
+filenames <- read_delim(file="../results/GO-enrichment/Final-DAVID/GO_filenames_nonlinear.txt", delim = "\t", col_names = c("filename", "gene_set"))
+file_list <- vector(mode = "list", length = nrow(filenames))
+names(file_list) <- c(filenames$gene_set)
+
+for (i in 1:nrow(filenames)) {
+    file_list[[i]] <- data.frame(read_delim(file=paste("../results/GO-enrichment/Final-DAVID/", filenames[i,"filename"], sep=""), delim = "\t"))}
+
+david.nonlinear <- bind_rows(file_list, .id = "gene_set") %>% clean_names() %>%  # Bind dataframe for each gene_set together
+    separate(gene_set, sep = "_", into = c("shape", "pattern"), remove = F) %>%
+    dplyr::rename(percent=x) %>%
+    separate(term, into = c("term_id", "term_process"), sep = "~") %>%
+  mutate_at(vars(shape, pattern), as.factor)
+```
+#### Enriched Biological Process GO Terms / Uniprot Keywords - genes with non-linear expression patterns with temperature
+
+```{r}
+#pdf(file="../results/GO-enrichment/Final-DAVID/Nonlinear-GO-bubble.pdf", height = 3.75, width = 3.75)
+pdf(file="../results/GO-enrichment/Final-DAVID/Nonlinear-KW-bubble.pdf", height = 2.30, width = 3.25)
+david.nonlinear %>%
+#  filter(category=="GOTERM_BP_DIRECT") %>% 
+  filter(category=="UP_KW_BIOLOGICAL_PROCESS") %>%
+#  filter(category=="KEGG_PATHWAY") %>%
+#  separate(term_id, into = c("term_id", "term_process"), sep = ":") %>%
+  filter(p_value<0.05) %>%
+#  filter(pattern=="Convex") %>% 
+  group_by(pattern, genes, count) %>%
+  dplyr::summarise(p_value=min(p_value)) %>% distinct() %>% ungroup() %>% #for rows with duplicate grouping variabes, select one with lowest p-value
+  left_join(david.nonlinear %>% 
+#              separate(term_id, into = c("term_id", "term_process"), sep = ":") %>% 
+              select(pattern, category, term_id, term_process, count, percent, p_value, fold_enrichment, fdr, genes), 
+            by = c("pattern", "genes", "p_value", "count")) %>%  #re-add data
+  ungroup() %>% arrange(pattern, p_value) %>% group_by(pattern) %>% #dplyr::slice(1:20) %>% # select the top n terms per group
+  mutate(pattern=factor(pattern, levels=c("Convex", "Concave"), ordered = TRUE)) %>%
+  arrange(pattern, p_value) %>%
+#  arrange(pattern, term_id) %>%
+#  ungroup() %>% arrange(term_id) %>%
+  mutate(term_process = str_wrap(term_process, width = 40)) %>%
+  mutate(term_process = factor(term_process, rev(unique(term_process)), ordered = TRUE)) %>%
+
+  # plot
+ggplot(aes(y = term_process, x=pattern, col=pattern)) + 
+  geom_point(alpha=.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
+ facet_wrap(~category,scales="free", nrow = 2) +
+  scale_color_manual(name="Pattern across\ntemperature",
+                     values=c(Increase="darkgreen", Decrease="purple4", 
+                              Concave=lighten("darkgreen", 0.45), Convex=lighten("purple4", 0.45)),
+             guide = guide_legend(order = 1, override.aes = list(size=4))) +
+  # scale_shape_manual(name="Significant pH interaction effect", 
+  #                    labels=c(`interaction`="Yes", `nointeraction`='No'),
+  #                    values=c(`interaction`=19, `nointeraction`=17),
+  #            guide = guide_legend(order = 2, override.aes = list(size=4))) +
+  scale_size("-Log10 P-value", range = c(2,8), #breaks = c(2, 5, 10),
+             guide = guide_legend(override.aes = list(col="gray50"))) +
+  scale_x_discrete(drop=T) + #Do drop empty factors for temperature contrasts
+  theme_cleveland() + 
+  theme(
+        legend.position = "right", 
+        axis.text.x=element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.y=element_text(size=7.25), 
+        plot.title = element_text(size=8),
+        legend.text=element_text(size=6), 
+        legend.title = element_text(size=6),
+        strip.background = element_blank(),
+        strip.text.x = element_blank()) +
+  ylab(NULL) + xlab(NULL) +
+  # coord_cartesian(clip = "off", ylim = c(.5, 38)) +
+   ggtitle("Biological Processes") #+
+  # annotate("text", x = 1, y = -1.5, label = "Decrease with\ntemperature", size=2, col="gray15") +
+  # annotate("text", x = 2, y = -1.5, label = "Increase with\ntemperature", size=2, col="gray15") +
+  # annotate("text", x = 2.5, y = 38, label = "Enriched Biological Processes", size=2.5, col="gray15") +
+  # annotate("text", x = 2.5, y = 37.25, label = "Non-linear response to temperature", size=2.5, col="gray15", fontface = 'bold') +
+  # annotate("text", x = 2.5, y = 36.5, label = "by pH interaction effect ", size=2.5, col="gray15", fontface = 'italic')
+dev.off()
+```
+
+Copy DAVID results (Uniprot Kewords and Gene Ontology terms) to paste into Google Spreadsheet 
+
+```{r}
+# Uniprot KW
+david.nonlinear %>% 
+  filter(p_value<0.05) %>%
+  filter(category=="UP_KW_BIOLOGICAL_PROCESS") %>%
+  arrange(pattern, p_value) %>%
+  mutate_at(c("p_value", "fdr"), funs(signif(.,2))) %>%
+  dplyr::select(pattern, term_id, term_process, count, p_value, fdr, genes) %>%
+  write_clip()
+
+# GO terms
+david.nonlinear %>% 
+  filter(p_value<0.05) %>%
+  filter(category=="GOTERM_BP_DIRECT") %>%
+  arrange(pattern, p_value) %>%
+  mutate_at(c("p_value", "fdr"), funs(signif(.,2))) %>%
+  dplyr::select(pattern, term_id, term_process, count, p_value, fdr, genes) %>%
+  write_clip()
+```
+
+Enriched GO biological processes - Network Diagrams using metacoder
+
+Here I save an R objects from GO enrichment results of the linear/nonlinear response genes to visualize in network plots - the visualization is done in RStudio Cloud, as it requires a specific older version of R and some R packages. 
+
+```{r}
+# Save R object to then import to RStudio Cloud for use in metacoder 
+save(david.nonlinear, file="../results/GO-enrichment/Final-DAVID/david.nonlinear")
+```
+
+
+
+
+
+
+
+
+
+### More analysis, looking at interaction effect and linear response genes - not used in paper!
+
+But for which genes is there a significant interaction between pH and temperature^2? 
+
+```{r}
+# Export diff expression data for genes with significant DE associated with interaction between temperature^2 and ph
+nl_interaction_2_sig <- topTags(nl_interaction_2, n = sum(abs(DEGs_nl_interaction_2)), adjust.method = "BH",p.value = 0.05)
+nl_interaction_2_sig_geneids <- row.names(nl_interaction_2_sig) #Output a list of geneids associated with sig temperature^2 x ph interaction
+
+# genes which are non-linear with temperature AND for which expression pattern depends on pH
+edgeR_LRT_df %>%  # dataframe with genes which are deemed non-linear as per edger AND LRT
+    filter(geneid %in% nl_interaction_2_sig_geneids) %>% # genes with significant interaction between temp^2 and pH as per edgeR analysis
+    filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) %>% #filter for only DEGs from DESeq2
+    select(geneid) %>% unique() %>% nrow() # count those 
+
+# Filter down df containing sign. non-linear genes (from edger AND LRT) for only those with sign. interaction betwen temp^2 and pH AND are DEGs from DESeq2
+nonlinear_interaction_df <- filter(edgeR_LRT_df, geneid %in% nl_interaction_2_sig_geneids ) %>%
+                            filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) #filter for only DEGs from DESeq2
+
+nonlinear_interaction_df$gene_id_ph <- paste(nonlinear_interaction_df$geneid,
+                                           nonlinear_interaction_df$ph,
+                                           sep = "_")
+
+# Add annotation annotation information 
+nonlinear_interaction_df <- nonlinear_interaction_df %>%
+               left_join(gadMor.blast.GO[c("gene_gadmor", "protein_names", "spid")],
+                         by=c("geneid"="gene_gadmor"))
+```
 
 ```{r}
 ### Generate a lineplot showing average expression by temperature, ph, and expression pattern
@@ -600,40 +838,11 @@ ggplot(data = edgeR_LRT_df_avg,
   scale_color_manual(values=c("blue", "red"))
 ```
 
-
-```{r}
-# Count how many gene id's exhibit pCO2 significant effect in edgeR and significant likelihood of nl effect in LRT... 527 genes
-nrow(as.data.frame(unique(edgeR_LRT_df$geneid)))
-```
-But for which genes is there a significant interaction between pH and temperature^2? 
-
-```{r}
-# Export diff expression data for genes with significant DE associated with interaction between temperature^2 and ph
-nl_interaction_2_sig <- topTags(nl_interaction_2, n = sum(abs(DEGs_nl_interaction_2)), adjust.method = "BH",p.value = 0.05)
-nl_interaction_2_sig_geneids <- row.names(nl_interaction_2_sig) #Output a list of geneids associated with sig temperature^2 x ph interaction
-
-# genes which are non-linear with temperature AND for which expression pattern depends on pH
-(edgeR_LRT_df %>%  # dataframe with genes which are deemed non-linear as per edger AND LRT
-    filter(geneid %in% nl_interaction_2_sig_geneids))$geneid %>% # genes with significant interaction between temp^2 and pH as per edgeR analysis
-  unique() %>% length() # count those 
-
-# Filter down df containing sign. non-linear genes (from edger AND LRT) for only those with sign. interaction betwen temp^2 and pH
-nonlinear_interaction_df <- filter(edgeR_LRT_df, geneid %in% nl_interaction_2_sig_geneids )
-nonlinear_interaction_df$gene_id_ph <- paste(nonlinear_interaction_df$geneid,
-                                           nonlinear_interaction_df$ph,
-                                           sep = "_")
-
-# Add annotation annotation information 
-nonlinear_interaction_df <- nonlinear_interaction_df %>%
-               left_join(gadMor.blast.GO[c("gene_gadmor", "protein_names", "spid")],
-                         by=c("geneid"="gene_gadmor"))
-```
-
-Exploring through gene-level plots - genes that respond non-linearly to temperature and for which pH affects that expresion:
+Exploring through gene-level plots - genes that respond non-linearly to temperature and for which pH affects that expression:
 
 ```{r}
 # Generate list of genes with interaction for a) those with A-shape in ambient pH, and b) those with V-shape in ambient pH 
-
+  
 # a) A-shape expression across temperature in ambient pH 
 nonlinear_interaction_Ashaped <- 
   nl_interaction_2_sig %>% as.data.frame() %>% rownames_to_column("geneid") %>% #convert edgeR model results to dataframe to access stats
@@ -773,8 +982,9 @@ nonlinear_no.interaction_degs$geneid %>% unique() %>% length()
  
 # Plot to make sure convex / concave shapes correctly describe the data
 genes <- (nonlinear_no.interaction_degs %>% filter(temperature_2_binom=="Convex"))$geneid %>% unique() 
-genes <- (nonlinear_no.interaction_degs %>% filter(temperature_2_binom=="Concave"))$geneid %>% unique()  
+length(genes)
 
+genes <- (nonlinear_no.interaction_degs %>% filter(temperature_2_binom=="Concave"))$geneid %>% unique()  
 length(genes)
 
 for (i in 1:length(genes)) {
@@ -897,7 +1107,7 @@ pheatmap(counts.nl.interact.degs.amb, cluster_rows=TRUE, cluster_cols=FALSE,
          cutree_rows = 2,  border_color=F)
 ```
 
-Generate single plot with all genes for which there is interaction between temperature^2 and pH (those expression patterns that respond non-linearly to temperature, and that depend on pH) AND are DEGs
+Generate single plot with all genes for which expression patterns respond non-linearly to temperature with significant interaction AND are DEGs
 
 ```{r}
 # Average logCPM across different groups according to temperature^2 estimate and ph
@@ -908,50 +1118,63 @@ nonlinear_interaction_degs_avg <-
               filter(geneid %in% c(nonlinear_interaction_degs_Ashaped$geneid, 
                                    nonlinear_interaction_degs_Vshaped$geneid)))  %>%
   mutate(temperature_2_binom = factor(ifelse(temperature_2_binom == "Concave", "V-shaped in ambient", "A-shaped in ambient")))
+
 # Plot 
-ggplot(data = nonlinear_interaction_degs_avg, 
+#pdf(file="../results/edgeR/Nonlinear-response-genes-plot.pdf", height = 2.75, width = 3)
+ggplot(data = nonlinear_interaction_degs_avg %>%
+         filter(ph==370), 
        aes(
          x = temperature,
          y = value,
          #color = as.factor(ph),
          color = as.factor(temperature_2_binom),
-         group = as.factor(ph),
-         shape=as.factor(ph)
+         group = as.factor(temperature_2_binom)#,
+         #shape=as.factor(ph)
          )) +
          geom_path(stat = "identity",
-                   aes(linetype=as.factor(ph))
+                   aes(group=as.factor(temperature_2_binom))
+                   #aes(linetype=interaction(as.factor(ph):as.factor(temperature_2_binom)))
                    ) +
   geom_errorbar(aes(ymin = value - se, ymax = value + se), width = 0) +
   geom_point(size=2.25) +
-  facet_wrap(~temperature_2_binom) +
+  #facet_wrap(~temperature_2_binom) +
   theme_classic() +
-  xlim(3,10) +
+  #xlim(3,10) + 
+  #ylim(3.25,5) +
   scale_x_discrete(limits=c(3,6,10)) +
   theme(strip.background = element_blank()) +
-  labs(y = "Expression level (logCPM)", x="Temperature",
-       color = "pCO2 treatment", linetype="pCO2",
-       title = "Average expression of genes with non-linear pattern across temperature\nthat is dependent on pCO2") +
-  scale_color_manual(values=c("blue", "red"), guide="none") +
-  scale_shape_manual(values=c(19, 17), guide="none") +
-  scale_linetype_manual(values=c("solid", "dashed"), labels=c("370"="Ambient", "950"="High"))
-#\nConcave=158 genes; Convex=334 genes\n(edgeR, LRT & DESeq2 consensus sets)
+  ggtitle(NULL) + #, "Average expression of genes with non-linear pattern across temperature\nthat is dependent on pCO2"
+  labs(y = NULL, x=NULL)  +
+  scale_color_manual(values=c(Increase="darkgreen", Decrease="purple4", 
+                              `V-shaped in ambient`=lighten("darkgreen", 0.45), 
+                              `A-shaped in ambient`=lighten("purple4", 0.45)), guide="none") #+
+  # scale_shape_manual(values=c(19, 17), guide="none") +
+  # scale_linetype_manual(values=c("solid", "solid", "dashed", "dashed"), 
+  #                       #limits=c("370:Decrease","950:Decrease"),
+  #                       # labels=c("370:Decrease"="Ambient pCO2", 
+  #                       #          "370:Increase"=NA, "950:Increase"=NA,
+  #                       #          "950:Decrease"="High pCO2")
+  #                       guide="none") #+
+#  guides(colour = guide_legend(order=1))
+#dev.off()
 
 # NOTE - this shows the average expression across all genes by group, which was calculated from averages of each gene by group. could consider another way of showing this data that doesn't simplify as much.   
 
-nrow(nonlinear_interaction_degs_Ashaped) #how many A-shaped in ambient pH? 334
-nrow(nonlinear_interaction_degs_Vshaped) #how many V-shaped in ambient pH? 158
+nrow(nonlinear_interaction_degs_Ashaped) #how many A-shaped in ambient pH? 179
+nrow(nonlinear_interaction_degs_Vshaped) #how many V-shaped in ambient pH? 71
 ```
 
 
 ######## LINEAR RESPONSE TO TEMPERATURE & INTERACTIVE EFFECTS
 
-There are 214 genes that respond linearly to temperature, without considering pH
+There are 318 genes that respond linearly to temperature, without considering pH
 
 ```{r}
 summary(DEGs_nl_temperature)
 ```
 
-There are 3593 genes that have significant temperature:pH interaction
+There are 1,473 genes that have significant temperature:pH interaction
+
 ```{r}
 summary(DEGs_nl_interaction)
 ```
@@ -1036,38 +1259,42 @@ ggplot(data = edgeR_LRT_linear_df,
   labs(y = "Avg logCPM", title = "Linear changes in GE output by edgeR & LRTs")
 ```
 
-### How many genes are identified as having linear expression with temperature according to both edgeR and LRT? 1982 
+### How many genes are identified as having linear expression with temperature according to both edgeR and LRT? 707 
 
 ```{r}
-edgeR_LRT_linear_df %>% select(geneid) %>% distinct() %>% nrow() #quite a few! 
+edgeR_LRT_linear_df %>% select(geneid) %>% distinct() %>% 
+  filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) %>% #filter for only DEGs from DESeq2
+  nrow()  
 ```
 
-## How many genes have linear expression with temperature and significant interaction between temperature:ph?
+## How many genes have positive linear expression with temperature and significant interaction between temperature:ph and are DEGs from DESeq2
+
 
 ```{r}
-edgeR_LRT_linear_df %>% filter(interact_sig=="Yes") %>% select(geneid) %>% distinct() %>% nrow() #quite a few! 1,980
+edgeR_LRT_linear_df %>% filter(interact_sig=="Yes") %>% select(geneid) %>% distinct() %>% 
+  filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) %>%  #filter for only DEGs from DESeq2
+  nrow() #quite a few! 685
 
 # How many increase with temperature?
 edgeR_LRT_linear_df %>% 
-  #filter(interact_sig=="Yes") %>% 
+  filter(interact_sig=="Yes") %>% 
   filter(temperature_binom_linear=="Positive") %>% 
-  select(geneid) %>% distinct() %>% nrow() #701
+  filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) %>%
+  select(geneid) %>% distinct() %>% nrow() #282
 
 # How many decrease with temperature?
 edgeR_LRT_linear_df %>% 
-  #filter(interact_sig=="Yes") %>% 
+  filter(interact_sig=="Yes") %>% 
   filter(temperature_binom_linear=="Negative") %>% 
-  select(geneid) %>% distinct() %>% nrow() #1279
+  filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) %>%
+  select(geneid) %>% distinct() %>% nrow() #403
 ```
 
-## How many genes have positive linear expression with temperature and significant interaction between temperature:ph and 
+```{r}
+# Filter down df containing sign. linear genes (from edger AND LRT) for only those with sign. interaction between temp and pH and are DEGs
 
-```{r}
-edgeR_LRT_linear_df %>% filter(interact_sig=="Yes") %>% select(geneid) %>% distinct() %>% nrow() #quite a few! 
-```
-```{r}
-# Filter down df containing sign. linear genes (from edger AND LRT) for only those with sign. interaction between temp and pH
-linear_interaction_df <- filter(edgeR_LRT_linear_df, interact_sig == "Yes")
+linear_interaction_df <- filter(edgeR_LRT_linear_df, interact_sig == "Yes") %>% 
+      filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) #filter for only DEGs from DESeq2
 linear_interaction_df$gene_id_ph <- paste(linear_interaction_df$geneid,
                                            linear_interaction_df$ph,
                                            sep = "_")
@@ -1169,37 +1396,101 @@ edgeR_LRT_linear_degs_df_avg <-
                                    linear_interaction_degs_decrease$geneid))) %>%
   mutate(temperature_binom_linear = factor(ifelse(temperature_binom_linear == "Negative", "Decrease", "Increase")))
 
-# Lineplot
-ggplot(data = edgeR_LRT_linear_degs_df_avg, 
+# Linear Lineplot
+pdf(file="../results/edgeR/Linear-response-genes-plot.pdf", height = 2.75, width = 3)
+ggplot(data = edgeR_LRT_linear_degs_df_avg %>%
+         filter(ph==370), 
        aes(
          x = temperature,
-         y = value,
+         y = value ,
          # color = as.factor(ph),
          color = as.factor(temperature_binom_linear),
-         group = as.factor(ph),
-         shape=as.factor(ph)
+         group = as.factor(temperature_binom_linear) #,
+         #shape=as.factor(ph)
          )) +
          geom_path(stat = "identity",
-                   aes(linetype=as.factor(ph))
-                   ) +
+#                   aes(linetype=interaction(as.factor(ph):as.factor(temperature_binom_linear)))
+                   aes(group=temperature_binom_linear)
+) +
   geom_errorbar(aes(ymin = value - se, ymax = value + se), width = 0) +
   geom_point(size=2.25) +
-  facet_wrap(~temperature_binom_linear) +
+#  facet_wrap(~temperature_binom_linear) +
   theme_classic() +
-  xlim(3,10) + 
+  xlim(3,10) +  ylim(3.25,5) +
   scale_x_discrete(limits=c(3,6,10)) +
   theme(strip.background = element_blank()) +
-  labs(y = "Expression level (logCPM)", x="Temperature", 
-       color = "pCO2 treatment", linetype="pCO2",
-       title = "Average expression of genes with linear pattern across temperature\nthat is dependent on pCO2") +
-  scale_color_manual(values=c("blue", "red"), guide="none") +
-  scale_shape_manual(values=c(19, 17), guide="none") +
-  scale_linetype_manual(values=c("solid", "dashed"), labels=c("370"="Ambient", "950"="High"))
+  ggtitle(NULL) + #, title = "Linear response to temperature"
+  labs(y=NULL, x=NULL) +
+  scale_color_manual(values=c(Increase="darkgreen", Decrease="purple4", 
+                              Concave=lighten("darkgreen", 0.45), Convex=lighten("purple4", 0.45)), guide="none") #+
+  #scale_shape_manual(values=c(19, 17), guide="none") +
+  #scale_linetype_manual(values=c("solid", "solid", "dashed", "dashed"), 
+                        #limits=c("370:Decrease","950:Decrease"),
+                        # labels=c("370:Decrease"="Ambient pCO2", 
+                        #          "370:Increase"=NA, "950:Increase"=NA,
+                        #          "950:Decrease"="High pCO2")
+ #                      guide="none") #+
+#  guides(colour = guide_legend(order=1))
+dev.off()
 
-#Negative=1,261 genes; Positive=688 genes (edgeR, LRT & DESeq2 consensus sets)
+#Negative=1,261 genes; Positive=687 genes (edgeR, LRT & DESeq2 consensus sets)
 ```
 
 ### Enrichment Analysis - linear and nonlinear gene sets
+
+Here I extract 4 lists of Uniprot SPIDs for DAVID enrichment analysis. These gene sets represent those that respond ... 
+  1) linearly to temperature, increasing with temperature 
+  2) linearly to temperature, decreasing with temperature  
+  3) non-linearly to temperature, convex shape (highest at 6C)
+  4) non-linearly to temperature, concave shape (lowest at 6C)
+
+```{r}
+# Background set of genes analyzed here 
+counts.annot.gadmor %>% dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector() %>% write_clip(allow_non_interactive = TRUE)
+
+# 1. linearly to temperature, increasing with temperature 
+edgeR_LRT_linear_df %>% 
+  filter(temperature_binom_linear=="Positive") %>% 
+  filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) %>%
+  select(geneid) %>% distinct() %>%
+  left_join(gadMor.blast.GO[c("gene_gadmor", "protein_names", "spid")], #annotate with blast results
+                         by=c("geneid"="gene_gadmor")) %>%
+  dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector() %>% write_clip(allow_non_interactive = TRUE)
+
+# 2. linearly to temperature, decreasing with temperature  
+edgeR_LRT_linear_df %>% 
+  filter(temperature_binom_linear=="Negative") %>% 
+  filter(geneid %in% unique(unlist(c(lapply(degs, rownames))))) %>%
+  select(geneid) %>% distinct() %>%
+  left_join(gadMor.blast.GO[c("gene_gadmor", "protein_names", "spid")], #annotate with blast results
+                         by=c("geneid"="gene_gadmor")) %>%
+  dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector() %>% write_clip(allow_non_interactive = TRUE)
+
+# 3. non-linearly to temperature, convex shape
+## (note- here I combine those with pCO2 interaction and without)
+c(nonlinear_interaction_degs_Ashaped %>% dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector(),
+  
+  nonlinear_no.interaction_degs %>% filter(temperature_2_binom=="Convex") %>% select(geneid) %>% distinct() %>%
+  left_join(gadMor.blast[,c("gene_gadmor", "spid")], by=c("geneid"="gene_gadmor")) %>% 
+  dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector()) %>% length()
+  
+  write_clip(allow_non_interactive = TRUE)
+
+
+# 4. non-linearly to temperature, concave shape 
+## (note- here I combine those with pCO2 interaction and without)
+
+c(nonlinear_interaction_degs_Vshaped %>% dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector(),
+
+  nonlinear_no.interaction_degs %>% filter(temperature_2_binom=="Concave") %>% select(geneid) %>% distinct() %>%
+  left_join(gadMor.blast[,c("gene_gadmor", "spid")], by=c("geneid"="gene_gadmor")) %>% 
+  dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector()) %>%
+
+  write_clip(allow_non_interactive = TRUE)
+
+```
+
+Enrichment analysis - linear and nonlinear - separating genes with significant interaction effect of high pCO2
 
 Here I extract 6 lists of Uniprot SPIDs for DAVID enrichment analysis. These gene sets represent those that respond ... 
   1) linearly to temperature, increasing with temperature, but slope is dependent on pH    
@@ -1236,9 +1527,9 @@ nonlinear_no.interaction_degs %>% filter(temperature_2_binom=="Concave") %>% sel
   dplyr::select(spid) %>%  na.omit() %>% unlist() %>% as.vector() %>% write_clip(allow_non_interactive = TRUE)
 ```
 
-```{r}
 #### Read in enriched biological functions for all patterns
 
+```{r}
 filenames <- read_delim(file="../results/GO-enrichment/GO_filenames_linear-nonlinear.txt", delim = "\t", col_names = c("filename", "gene_set"))
 file_list <- vector(mode = "list", length = nrow(filenames))
 names(file_list) <- c(filenames$gene_set)
@@ -1476,6 +1767,100 @@ ggplot(aes(y = term_process, #shape=pattern,
   annotate("text", x = 1.5, y = 13, label = "by response pattern & pH interaction effect ", size=2.5, col="gray15", fontface = 'italic')
 dev.off()
 ```
+
+### Re-do bubble plots to include both linear and non-linear response processes, either GO terms or Uniprot Keywords
+
+#### Read in enriched biological functions for all patterns
+
+```{r}
+filenames <- read_delim(file="../results/GO-enrichment/GO_filenames_linear-nonlinear_all-genes.txt", delim = "\t", col_names = c("filename", "gene_set"))
+file_list <- vector(mode = "list", length = nrow(filenames))
+names(file_list) <- c(filenames$gene_set)
+
+for (i in 1:nrow(filenames)) {
+    file_list[[i]] <- data.frame(read_delim(file=paste("../results/GO-enrichment/", filenames[i,"filename"], sep=""), delim = "\t"))}
+
+enriched.bp.linear.nonlinear_all <- bind_rows(file_list, .id = "gene_set") %>% clean_names() %>%  # Bind dataframe for each gene_set together
+    dplyr::rename(percent=x) %>%
+    separate(term, into = c("term_id", "term_process"), sep = "~") %>%
+    separate(gene_set, sep = "-", into = c("shape", "pattern"), remove = F) %>% 
+  mutate_at(vars(shape, pattern), as.factor)
+```
+#### Enriched Biological Process GO Terms - genes with linear and non-linear expression patterns with temperature
+
+```{r}
+pdf(file="../results/GO-enrichment/Enriched-Uniprot-Keywords_linear-nonlinear_Bubble-plot.pdf", height = 4.25, width = 3.5)
+#pdf(file="../results/GO-enrichment/Enriched-GO-terms_linear-nonlinear_Bubble-plot.pdf", height = 7, width = 6)
+
+enriched.bp.linear.nonlinear_all %>%
+  filter(category=="GOTERM_BP_DIRECT") %>% 
+#  filter(category=="UP_KW_BIOLOGICAL_PROCESS") %>%
+#  filter(category=="KEGG_PATHWAY") %>%
+#  separate(term_id, into = c("term_id", "term_process"), sep = ":") %>%
+  filter(p_value<0.05) %>%
+  filter(shape=="nonlinear") %>% 
+  group_by(shape, pattern, genes, count) %>%
+  dplyr::summarise(p_value=min(p_value)) %>% distinct() %>% ungroup() %>% #for rows with duplicate grouping variabes, select one with lowest p-value
+  left_join(enriched.bp.linear.nonlinear_all %>% 
+#              separate(term_id, into = c("term_id", "term_process"), sep = ":") %>% 
+              select(shape, pattern, category, term_id, term_process, count, percent, p_value, fold_enrichment, fdr, genes), 
+            by = c("shape", "pattern", "genes", "p_value", "count")) %>%  #re-add data
+  ungroup() %>% arrange(shape, pattern, p_value) %>% group_by(shape, pattern) %>% #dplyr::slice(1:20) %>% # select the top n terms per group
+  arrange(pattern, p_value) %>%
+#  arrange(pattern, term_id) %>%
+#  ungroup() %>% arrange(term_id) %>%
+  mutate(term_process = factor(term_process, rev(unique(term_process)), ordered = TRUE)) %>%
+  mutate(pattern=factor(pattern, levels=c("Increase", "Concave", "Decrease", "Convex"), ordered = TRUE)) %>%
+
+  # plot
+ggplot(aes(y = term_process, x=pattern, col=pattern)) + 
+  geom_point(alpha=.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
+ facet_wrap(~category,scales="free", nrow = 2) +
+  scale_color_manual(name="Pattern across\ntemperature",
+                     values=c(Increase="darkgreen", Decrease="purple4", 
+                              Concave=lighten("darkgreen", 0.45), Convex=lighten("purple4", 0.45)),
+             guide = guide_legend(order = 1, override.aes = list(size=4))) +
+  # scale_shape_manual(name="Significant pH interaction effect", 
+  #                    labels=c(`interaction`="Yes", `nointeraction`='No'),
+  #                    values=c(`interaction`=19, `nointeraction`=17),
+  #            guide = guide_legend(order = 2, override.aes = list(size=4))) +
+  scale_size("-Log10 P-value", range = c(2,8), #breaks = c(2, 5, 10),
+             guide = guide_legend(override.aes = list(col="gray50"))) +
+  scale_x_discrete(drop=T) + #Do drop empty factors for temperature contrasts
+  theme_cleveland() + 
+  theme(
+        legend.position = "right", 
+        axis.text.x=element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.y=element_text(size=7.25), 
+        plot.title = element_text(size=10),
+        legend.text=element_text(size=6), 
+        legend.title = element_text(size=6),
+        strip.background = element_blank(),
+        strip.text.x = element_blank()) +
+  ylab("Enriched Gene Ontology (GO) Term") + xlab(NULL) #+
+  # coord_cartesian(clip = "off", ylim = c(.5, 38)) +
+  # ggtitle(NULL) +
+  # annotate("text", x = 1, y = -1.5, label = "Decrease with\ntemperature", size=2, col="gray15") +
+  # annotate("text", x = 2, y = -1.5, label = "Increase with\ntemperature", size=2, col="gray15") +
+  # annotate("text", x = 2.5, y = 38, label = "Enriched Biological Processes", size=2.5, col="gray15") +
+  # annotate("text", x = 2.5, y = 37.25, label = "Non-linear response to temperature", size=2.5, col="gray15", fontface = 'bold') +
+  # annotate("text", x = 2.5, y = 36.5, label = "by pH interaction effect ", size=2.5, col="gray15", fontface = 'italic')
+dev.off()
+```
+
+Enriched GO biological processes - Network Diagrams using metacoder
+
+Here I save an R objects from GO enrichment results of the linear/nonlinear response genes to visualize in network plots - the visualization is done in RStudio Cloud, as it requires a specific older version of R and some R packages. 
+
+```{r}
+# Save R object to then import to RStudio Cloud for use in metacoder 
+save(enriched.bp.linear.nonlinear_all, file="../results/GO-enrichment/enriched.bp.linear.nonlinear_all")
+```
+
+
+
+
 
 ## Differential Exon + Gene Expression Analysis 
 

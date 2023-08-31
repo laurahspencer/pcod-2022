@@ -1,4 +1,0 @@
-"0","##### If using counts which included multimapped counted fractionally, need to round to the nearest integer for DESeq2. "
-"0","#_Not needed for gene counts produced by STAR aligner_"
-"0",""
-"0","#counts.tk <- counts.tk %>% mutate_if(is.numeric, round)"
