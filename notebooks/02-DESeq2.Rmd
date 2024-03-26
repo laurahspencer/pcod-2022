@@ -23,7 +23,7 @@ source("../references/iLOO.R")
 `%!in%` = Negate(`%in%`)
 
 # Add all required libraries that are installed with install.packages() here
-list.of.packages <- c("RCurl", "tidyverse", "vegan", "pheatmap", "pastecs", "factoextra", "FactoMineR", "RColorBrewer", "tibble", "reshape2", "plotly", "cowplot", "clipr", "janitor", "ggpubr", "forcats", "apeglm", "car", "vsn", "devtools", "grid", "gridGraphics", "Rfast", "dendextend", "RColorBrewer", "scales", "VennDiagram", "colorspace", "edgeR")
+list.of.packages <- c("RCurl", "tidyverse", "vegan", "pheatmap", "pastecs", "factoextra", "FactoMineR", "RColorBrewer", "tibble", "reshape2", "plotly", "cowplot", "clipr", "janitor", "ggpubr", "forcats", "apeglm", "car", "vsn", "devtools", "grid", "gridGraphics", "Rfast", "dendextend", "RColorBrewer", "scales", "VennDiagram", "colorspace", "edgeR", "ggpattern")
 
 # Add all libraries that are installed using BiocManager here
 bioconductor.packages <- c("DESeq2", "WGCNA")
@@ -31,12 +31,12 @@ bioconductor.packages <- c("DESeq2", "WGCNA")
 # # Install BiocManager if needed
 # if(!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 # 
-# # Get names of all required packages that aren't installed
-# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
-# new.bioc.packages <- bioconductor.packages[!(bioconductor.packages %in% installed.packages()[, "Package"])]
-# # Install all new packages
-# if(length(new.packages)) install.packages(new.packages)
-# if(length(new.bioc.packages)) BiocManager::install(new.bioc.packages)
+# Get names of all required packages that aren't installed
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
+new.bioc.packages <- bioconductor.packages[!(bioconductor.packages %in% installed.packages()[, "Package"])]
+# Install all new packages
+if(length(new.packages)) install.packages(new.packages)
+if(length(new.bioc.packages)) BiocManager::install(new.bioc.packages)
 
 # Load all required libraries
 all.packages <- c(list.of.packages, bioconductor.packages)
@@ -696,7 +696,7 @@ This PCA also suggests that two samples - 137 and 194 - are outliers. Consider r
 This enables screeplot to ID significant PCs, calculates variance, etc. 
 
 ```{r, warning=F, message=F}
-#pca.princomp <- prcomp(cov(assay(vsd.pH)), scale=F) #scale=F for variance-covariance matrix
+#pca.princomp <- prcomp(cov(assay(vsd.treatment)), scale=F) #scale=F for variance-covariance matrix
 pca.princomp <- prcomp(t(assay(vsd.treatment))) # using the same code that's under the hood of PlotPCA but using all genes 
 pca.eigenval(pca.princomp) #The Proporation of Variance = %variance 
 pc.percent <- pca.eigenval(pca.princomp)[2,1:6]*100
@@ -874,6 +874,35 @@ ggscatter(tab.expr.annot %>%
   scale_shape_manual(guide="none", values=c("amb"=19, "low"=17)) + 
   guides(colour = guide_legend(override.aes = list(size=3.5, linetype="blank", shape=c(19, 17, 19, 17, 19, 17))))
 dev.off()
+```
+
+FOR PACIFIC COD WORKSHOP, NOVEMBER 2023. MAKE PCA SHOWING ONLY EFFECTS OF OA AND WARMING 
+
+```{r}
+ggscatter(tab.expr.annot %>%
+            filter(temperature != 3) %>%
+            mutate(treatment=factor(treatment, 
+                             levels=c("6_amb", "6_low", "10_amb", 
+                                      "10_low"), ordered = T)), 
+#          group=c("temperature", "ph"),
+          x="EV1.all", y="EV2.all", col="treatment", size=3.5, alpha=0.85, 
+          ellipse = F, star.plot = F, ellipse.alpha=0, star.plot.lwd=.02) +
+  theme_minimal() + ggtitle("Global gene expression PC1xPC2") + 
+  xlab(paste("PC1 (", round(pc.percent[1], digits = 1), "%)", sep="")) + 
+  ylab(paste("PC2 (", round(pc.percent[2], digits = 1), "%)", sep="")) + 
+  theme(legend.position = "right", legend.text=element_text(size=8), legend.title=element_text(size=9)) + 
+  scale_color_manual(name="Treatment", 
+                     values=c("6_amb"="gray65",
+                              "6_low"=lighten("darkorange2", 0.25), 
+                              "10_amb"=lighten("firebrick4", 0.45), 
+                              "10_low"="firebrick4"), 
+                     labels=c("6_amb"="Control",
+                              "6_low"="Acidified", 
+                              "10_amb"="Warm",
+                              "10_low"="Warm + Acidified")) +
+  scale_shape_manual(guide="none", values=c("amb"=19, "low"=17)) + 
+  guides(colour = guide_legend(override.aes = list(size=3.5, linetype="blank")))
+
 ```
 Supplemental PCA's with PC3+
 
@@ -1945,7 +1974,7 @@ names(n.degs) <- c("contrast", "n.degs", "perc", "grp")
 for (i in (1:length(degs))) {
   n.degs[i,1] <- names(degs[i])
   n.degs[i,2] <- nrow(degs[[i]])
-  n.degs[i,3] <- 100*round(nrow(degs[[i]])/ncol(counts.ts), digits = 2)
+  n.degs[i,3] <- 100*round(nrow(degs[[i]])/ncol(counts.ts), digits = 3)
   n.degs[i,4] <- grp[i]
 }
 
@@ -1985,6 +2014,31 @@ ggplot(n.degs %>%
   guides(fill=guide_legend(nrow=3,byrow=TRUE,reverse=TRUE)) 
 #dev.off()
 ```
+MAKE BARPLOT FOR PRESENTATION THAT ONLY INCLUDES WARMING AND WARMING+ACIDIFICATION
+
+```{r}
+ggplot(n.degs %>% 
+         filter(contrast %in% c("Amb vs. Low pH @6C",
+                                "6 vs. 10C @Amb pH", "6 amb vs. 10 low")) %>%
+         mutate(effect_of=case_when(
+           grepl("Amb vs. Low pH @6C", contrast) ~ "High pCO2",
+           grepl("6 amb vs. 10 low", contrast) ~ "Warm temperature + High pCO2",
+           grepl("6 vs. 10C", contrast) ~ "Warm temperature")) %>% 
+        mutate(effect_of=fct_relevel(effect_of,
+           c("High pCO2", "Warm temperature + High pCO2", "Warm temperature"))), 
+       aes(x=effect_of, y=n.degs, fill=effect_of)) + 
+  geom_bar(aes(alpha=effect_of), stat = "identity", color="gray20", size=0.1) +
+  geom_text(hjust=-0.1, size=3.5, aes(label=paste(comma(n.degs), " (", perc, "%)", sep=""))) + 
+  xlab("Contrast") + ylab("Number Differentially Expressed Genes (% of all genes)") + 
+  xlab(NULL) + ylab(NULL) + coord_flip() + ggtitle("Number Differentially Expressed Genes (% of all genes)") +
+  theme_minimal() + ylim(c(0,5000)) + 
+  theme(legend.position = "none", plot.title = element_text(size = 10)) +
+  scale_fill_manual(name=NULL, values=c("darkorange2", "firebrick4", "firebrick4")) +
+  scale_alpha_manual(name=NULL, values=c(.4, .7, .4)) +
+  guides(fill=guide_legend(nrow=3,byrow=TRUE,reverse=TRUE)) 
+```
+
+
 
 Regenerate barplot for paper (Figure 3) with the number of upregulated / downregualted DEGs by treatment 
 
@@ -2027,7 +2081,6 @@ n.degs.updown <- n.degs.updown %>%
          response=factor(response, ordered = T))
 
 n.degs.updown
-require(ggpattern)
 
 # Barplot with no. of DEGs by single stressors vs. multiple stressors, including up/down regulation 
 pdf(file="../results/deseq2/DEGs_barplot_single-vs-double-stressor-up-down.pdf", height = 2, width = 7)
@@ -2231,7 +2284,23 @@ eulerr:::plot.euler(venn.stressors.warm.cold, counts = T, quantities = T,
                                         "orange","firebrick4")))
 
 ```
+MAKE VENN FOR PRESENTATION SHOWING ONLY EFFECTS OF WARMING AND ACIDIFICATION
+
 ```{r}
+venn.stressors.presentation <- data.frame(dat = 
+             unique(c(`Warm Temperature`, `High pCO2`, `Warm + High pCO2`))) %>%
+  mutate(`Warm Temperature` = dat %in% `Warm Temperature`,
+         `High pCO2` = dat %in% `High pCO2`,
+         `Warm + High pCO2` = dat %in% `Warm + High pCO2`) %>%
+  select(`Warm Temperature`, `High pCO2`, `Warm + High pCO2`) %>%
+  euler()
+
+pdf(file="../results/deseq2/venn_presentation.pdf", height = 5.2, width = 6)
+eulerr:::plot.euler(venn.stressors.presentation, counts = T, quantities = T, 
+                      legend = T, edges=T, fontzie=8,
+                      font=1, cex=1, alpha=0.65,
+                      fills=list(fill=c(lighten("firebrick4", amount=0.55), "#FF955E", "firebrick4")))
+dev.off()
 
 ```
 
@@ -2672,6 +2741,100 @@ ggplot(aes(y = process, x=stress, col=stress)) +
   ggtitle("Downregulated Biological Processes\n(GO terms)")
 dev.off()
 ```
+MAKE UNIPROT BUBBLE PLOTS FOR PRESENTATION - ONLY WARMING AND ACIDIFICATION TREATMENTS
+
+```{r}
+david %>% 
+  filter(p_value<0.05) %>%
+  filter(category=="UP_KW_BIOLOGICAL_PROCESS") %>%
+
+  group_by(stress, response, genes, count) %>%
+  dplyr::summarise(p_value=min(p_value)) %>% distinct() %>% ungroup() %>% #for rows with duplicate grouping variabes, select one with lowest p-value
+  left_join(david %>% 
+              dplyr::select(stress, response, category, term, process, count, percent, p_value, fold_enrichment, fdr, genes), 
+            by = c("stress", "response", "genes", "p_value", "count")) %>%  #re-add data
+  filter(response=="Upregulated") %>% 
+
+  ungroup() %>% arrange(stress, p_value) %>%
+  mutate(process = factor(process, rev(unique(process)), ordered = TRUE)) %>%
+  filter(stress %!in% c("Cold", "Cold-OA")) %>%
+  mutate(stress = factor(stress, c("Warm", "Warm-OA", "OA"), ordered = TRUE)) %>%
+
+ggplot(aes(y = process, x=stress, col=stress)) + 
+  geom_point(alpha=0.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
+ facet_wrap(~category,scales="free", nrow = 2) +
+ scale_color_manual(name="Stressor",
+                     values=c("OA"=lighten("darkorange2", 0.25), 
+                              "Warm"=lighten("firebrick4", 0.45), 
+                              "Warm-OA"="firebrick4"),
+             guide = guide_legend(override.aes = list(size=4))) +
+  scale_size("-Log10 P-value", range = c(2,8), #breaks = c(2, 5, 10),
+             guide = guide_legend(override.aes = list(col="gray50"))) +
+  scale_x_discrete(drop=T) + #Do drop empty factors for temperature contrasts
+  theme_cleveland() + 
+  theme(
+        legend.position = "right", 
+        axis.text.x=element_blank(),
+        axis.title.x=element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.y=element_text(size=7.25), 
+        plot.title = element_text(size=8),
+        legend.text=element_text(size=6), 
+        legend.title = element_text(size=6),
+        strip.background = element_blank(),
+        strip.text.x = element_blank()) +
+  ggtitle("Upregulated Biological Processes")
+
+
+
+david %>% 
+  filter(p_value<0.05) %>%
+  filter(category=="UP_KW_BIOLOGICAL_PROCESS") %>%
+  group_by(stress, response, genes, count) %>%
+  dplyr::summarise(p_value=min(p_value)) %>% distinct() %>% ungroup() %>% #for rows with duplicate grouping variabes, select one with lowest p-value
+  left_join(david %>% 
+              dplyr::select(stress, response, category, term, process, count, percent, p_value, fold_enrichment, fdr, genes), 
+            by = c("stress", "response", "genes", "p_value", "count")) %>%  #re-add data
+  filter(response=="Downregulated") %>% 
+  ungroup() %>% arrange(stress, p_value) %>%
+  mutate(process = factor(process, rev(unique(process)), ordered = TRUE)) %>%
+  filter(stress %!in% c("Cold", "Cold-OA")) %>%
+  mutate(stress = factor(stress, c("Warm", "Warm-OA", "OA"), ordered = TRUE)) %>%
+
+ggplot(aes(y = process, x=stress, col=stress)) + 
+  geom_point(alpha=0.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
+ facet_wrap(~category,scales="free", nrow = 2) +
+ scale_color_manual(name="Stressor",
+                     values=c("OA"=lighten("darkorange2", 0.25), 
+                              "Warm"=lighten("firebrick4", 0.45), 
+                              "Warm-OA"="firebrick4"),
+             guide = guide_legend(order = 1, override.aes = list(size=4))) +
+  scale_size("-Log10 P-value", range = c(2,8), #breaks = c(2, 5, 10),
+             guide = guide_legend(override.aes = list(col="gray50"))) +
+  scale_x_discrete(drop=T) + #Do drop empty factors for temperature contrasts
+  theme_cleveland() + 
+  theme(
+        #legend.position = "none", 
+        axis.text.x=element_blank(),
+        axis.title.x=element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.y=element_text(size=7.25), 
+        plot.title = element_text(size=8),
+        legend.text=element_text(size=6), 
+        legend.title = element_text(size=6),
+        strip.background = element_blank(),
+        strip.text.x = element_blank()) +
+  ggtitle("Downregulated Biological Processes")
+```
+
+
+
+
+
+
+
+
+
 Enriched GO biological processes - Network Diagrams using metacoder
 
 Here I prep R objects from GO enrichment results to visualize in network plots - the visualization is done in RStudio Cloud, as it requires a specific older version of R and some R packages. 

@@ -375,4 +375,7 @@ counts.annot.gadmor %>% head(n=100) %>% select(gene_gadmor,
                                                spid, species, evalue, protein_names) %>% View()
 ```
 
+```{r}
+gadMor.blast.GO %>% View()
+```
 

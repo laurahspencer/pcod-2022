@@ -184,9 +184,10 @@ rownames(degs$`6 vs. 10C @Amb pH`),
 rownames(degs$`6 amb vs. 3C low`), 
 rownames(degs$`6 amb vs. 10 low`)))
 
-
+View(counts.annot.gadmor)
 lipid.genes <- (counts.annot.gadmor %>% filter(gene_gadmor %in% degs.unique) %>% #use only genes that were DEGs
-                  filter(spid %in% (unique(c(OA, Warm, Cold, `Warm+OA`)) %>% gsub(" ", "", .))))$gene_gadmor #and only those related to lipid metabolism
+                  filter(spid %in% (unique(c(OA, Warm, `Warm+OA`)) %>% gsub(" ", "", .))))$gene_gadmor #and only those related to lipid metabolism
+#Cold, 
 
 load(file = "../results/deseq2/counts.tk")
 load(file = "../results/deseq2/vsd.treatment")
@@ -209,15 +210,17 @@ cluster.most.variable <- pheatmap(t(assay(vsd.treatment))[sample.order,lipid.gen
             "Warming"=lighten("firebrick4", 0.45),
             "Warming + Acidification"="firebrick4",
             "Cooling"=lighten("navyblue", 0.45),
-            "Cooling + Acidification"="navyblue")),
+            "Cooling + Acidification"="navyblue"
+            )),
          annotation_row=as.data.frame(colData(vsd.treatment)[sample.order,c("treatment"), drop=FALSE]) %>%
            mutate(treatment=case_when(
               treatment == "6_amb" ~ "Control",
               treatment == "6_low" ~ "Acidification",
               treatment == "10_amb" ~ "Warming",
               treatment == "10_low" ~ "Warming + Acidification", 
-              treatment == "3_amb" ~ "Cooling", 
-              treatment == "3_low" ~ "Cooling + Acidification")),
+              treatment == "3_amb" ~ "Cooling",
+              treatment == "3_low" ~ "Cooling + Acidification"
+              )),
          main = "Lipid metabolism gene counts")
 #dev.off()
 ```
@@ -245,18 +248,288 @@ rbind(t(assay(vsd.treatment))[,lipid.genes],
   mutate(cluster=as.factor(cluster)) %>%
 
   # Filter for clusters in tree 
-  filter(cluster %in% c(5)) %>% 
+  filter(cluster %in% c(1)) %>% 
 
   # # To save Uniprot SPID to clipboard
   # select(spid) %>% na.omit() %>% unlist() %>% as.vector() %>% 
   # write_clip()
 
   # Generate wordcloud from GO terms 
-  select(gene_ontology_biological_process) %>% na.omit() %>% unlist() %>% as.vector() %>% 
+  select(gene_ontology_biological_process) %>% 
+  #select(gene_ontology_cellular_component) %>% 
+  na.omit() %>% unlist() %>% as.vector() %>% 
   gsub("\\[[^\\]]*\\]", "", ., perl=TRUE) %>%
   gsub("process", "", ., perl=TRUE) %>% #get rid of word "process" since it's in everything
   wordcloud(min.freq = 2, random.order = F, random.color = F, colors = brewer.pal(2, "Dark2"))
 ```
+
+Look at immune function genes
+
+```{r}
+immune.spid <- (david %>% filter(p_value<0.05, category=="UP_KW_BIOLOGICAL_PROCESS") %>% #filter(stress %in% c("Cold", "Cold-OA")) %>%
+             filter(grepl('DNA', process)))$genes %>% strsplit(., ",") %>% unlist() %>% as.vector() %>%
+  gsub(" ", "", .)
+```
+
+Heat map of immune function related genes 
+
+```{r}
+#load(file = "../results/deseq2/degs")
+
+immune.genes <- (counts.annot.gadmor %>% filter(gene_gadmor %in% degs.unique) %>% #use only genes that were DEGs
+                  filter(spid %in% immune.spid))$gene_gadmor #and only those related to immune functions
+
+# Generate heat map / cluster lipid related genes
+#pdf(file="../results/deseq2/heatmap-lipids.pdf", height = 5, width = 7.25)
+cluster.most.variable <- pheatmap(t(assay(vsd.treatment))[sample.order,immune.genes], 
+         Rowv=NA, Colv=NA, na.rm = TRUE, xlab = NA, scale="column",
+                     show_colnames =TRUE, show_rownames = FALSE,
+         border_color = NA,
+         fontsize_col=6.5, fontsize = 8,
+         cluster_cols = TRUE, cluster_rows = F,
+         annotation_colors = list(treatment=
+          c("Control"="gray65",
+            "Acidification"=lighten("darkorange2", 0.25),
+            "Warming"=lighten("firebrick4", 0.45),
+            "Warming + Acidification"="firebrick4",
+            "Cooling"=lighten("navyblue", 0.45),
+            "Cooling + Acidification"="navyblue")),
+         annotation_row=as.data.frame(colData(vsd.treatment)[sample.order,c("treatment"), drop=FALSE]) %>%
+           mutate(treatment=case_when(
+              treatment == "6_amb" ~ "Control",
+              treatment == "6_low" ~ "Acidification",
+              treatment == "10_amb" ~ "Warming",
+              treatment == "10_low" ~ "Warming + Acidification", 
+              treatment == "3_amb" ~ "Cooling", 
+              treatment == "3_low" ~ "Cooling + Acidification")),
+         main = "Ribosome Biogenesis & rRNA Processing gene counts")
+#dev.off()
+```
+
+Figure out which genes cluster together 
+
+```{r}
+immune.tree <- pheatmap(t(assay(vsd.treatment))[,immune.genes], 
+         Rowv=NA, Colv=NA, na.rm = TRUE, xlab = NA, scale="column",
+         cluster_cols = TRUE, cluster_rows = TRUE, silent = TRUE)
+
+plot(immune.tree$tree_col)
+abline(h=11.8, col="red", lty=2, lwd=2)
+
+rbind(t(assay(vsd.treatment))[,immune.genes],
+      cluster = cutree(immune.tree$tree_col, k = 2)) %>%
+  as.data.frame() %>% tail() %>%
+  t() %>% as.data.frame() %>% select(cluster) %>%
+  rownames_to_column("gene_gadmor") %>%
+  left_join(counts.annot.gadmor[c("gene_gadmor", "gene_uni", "spid", "evalue", "protein_names")], 
+            by = "gene_gadmor") %>%
+  left_join(gadMor.blast.GO %>% 
+              select(spid, gene_ontology_biological_process, 
+                     gene_ontology_cellular_component, gene_ontology_molecular_function, gene_ontology_i_ds)) %>%
+  mutate(cluster=as.factor(cluster)) %>%
+
+  # Filter for clusters in tree 
+  #filter(cluster %in% c(2)) %>% 
+
+  # # To save Uniprot SPID to clipboard
+  # select(spid) %>% na.omit() %>% unlist() %>% as.vector() %>% 
+  # write_clip()
+
+  # Generate wordcloud from GO terms 
+  select(gene_ontology_biological_process) %>% 
+  #select(gene_ontology_cellular_component) %>%
+  #select(protein_names) %>% 
+  
+  
+  na.omit() %>% unlist() %>% as.vector() %>% 
+  gsub("\\[[^\\]]*\\]", "", ., perl=TRUE) %>%
+  gsub("interleukin-..|interleukin-.|interleukin.", "interleukin", ., perl=TRUE) %>%  #gsub("process|regulation|negative|positive|response|pathway|production", "", ., perl=TRUE) %>% #get rid of word "process" since it's in everything
+gsub("process|transposon", "", ., perl=TRUE) %>% #get rid of word "process" since it's in everything
+  wordcloud(min.freq = 5, random.order = F, random.color = F, colors = brewer.pal(2, "Dark2"))
+
+```
+Generate PCA using differentially expressed genes found to be associated with immune system 
+
+```{r}
+pca.princomp.var <- prcomp(t(assay(vsd.treatment)[immune.genes,])) # using the same code that's under the hood of PlotPCA 
+pca.eigenval(pca.princomp.var) #The Proporation of Variance = %variance 
+pc.percent.var <- pca.eigenval(pca.princomp.var)[2,1:5]*100
+pc.percent.var[1:2] %>% sum()
+screeplot(pca.princomp.var, bstick=TRUE) #looks like PC 1-3 are significant 
+
+tab.expr.var <- data.frame(sample.id = colnames(assay(vsd.treatment[immune.genes,])),
+    EV1.all = pca.princomp.var$x[,1],    # the first eigenvector
+    EV2.all = pca.princomp.var$x[,2],    # the second eigenvector
+    EV3.all = pca.princomp.var$x[,3],    # the third eigenvector
+    stringsAsFactors = FALSE)
+#shapiro.test(pca.princomp$x) #sample size too large for shapiro test which is weird 
+#hist(pca.princomp$x) #normal? hard to say, maybe
+tab.expr.annot.var <- left_join(tab.expr.var, sample.info, by=c("sample.id"="vial_label")) %>% droplevels()
+
+# GGSCATTER with ellipses and stars - PC1 PC2
+ggscatter(tab.expr.annot.var, group=c("temperature", "ph"),
+          x="EV1.all", y="EV2.all", col="treatment", shape="ph", size=3.5, alpha=0.85, 
+          ellipse = FALSE, star.plot = FALSE) +
+  theme_minimal() + ggtitle("Gene Expression PC1xPC2\nImmune system DEGs") + 
+  xlab(paste("PC1 (", round(pc.percent.var[1], digits = 1), "%)", sep="")) + 
+  ylab(paste("PC2 (", round(pc.percent.var[2], digits = 1), "%)", sep="")) + 
+  labs(color="OA Treatment") + 
+  theme(legend.position = "right") + 
+  scale_color_manual(name="Treatment", 
+                     values=c("6_amb"="gray65",
+                              "6_low"=lighten("darkorange2", 0.25), 
+                              "10_amb"=lighten("firebrick4", 0.45), 
+                              "10_low"="firebrick4", 
+                              "3_amb"=lighten("navyblue", 0.45),
+                              "3_low"="navyblue"),
+                     labels=c("6_amb"="Control",
+                              "6_low"="High pCO2", 
+                              "10_amb"="Warm Temperature", 
+                              "10_low"="Warm Temperature + High pCO2", 
+                              "3_amb"="Cold Temperature",
+                              "3_low"="Cold Temperature + High pCO2")) +
+  scale_shape_manual(guide="none", values=c("amb"=19, "low"=17)) + 
+  guides(colour = guide_legend(override.aes = list(size=3.5, linetype="blank"), order=1))
+```
+
+
+REMAKE IMMUNE HEAT MAP WITH ONLY WARM AND ACIDIFICATION TREATMENTS
+
+```{r}
+sample.order.presentation <- (counts.tk %>% select(treatment) %>% rownames_to_column("sample") %>%
+                                filter(treatment %!in% c("3_low", "3_amb")) %>%
+  mutate(treatment=factor(treatment, ordered = T, levels = c("6_amb", "6_low", "10_low", "10_amb"))) %>%
+  arrange(treatment))$sample
+
+cluster.most.variable <- pheatmap(t(assay(vsd.treatment))[sample.order.presentation,immune.genes], 
+         Rowv=NA, Colv=NA, na.rm = TRUE, xlab = NA, scale="column",
+                     show_colnames =TRUE, show_rownames = FALSE,
+         border_color = NA,
+         fontsize_col=6.5, fontsize = 8,
+         cluster_cols = TRUE, cluster_rows = F,
+         annotation_colors = list(treatment=
+          c("Control"="gray65",
+            "Acidification"=lighten("darkorange2", 0.25),
+            "Warming"=lighten("firebrick4", 0.45),
+            "Warming + Acidification"="firebrick4")),
+         annotation_row=as.data.frame(colData(vsd.treatment)[sample.order,c("treatment"), drop=FALSE]) %>%
+           mutate(treatment=case_when(
+              treatment == "6_amb" ~ "Control",
+              treatment == "6_low" ~ "Acidification",
+              treatment == "10_amb" ~ "Warming",
+              treatment == "10_low" ~ "Warming + Acidification")),
+         main = "Immune function gene counts")
+```
+MAKE BOXPLOT WITH IMMUNE DEGS
+
+```{r}
+immune.genes.lines <- vector("list", length(immune.genes))
+names(immune.genes.lines) <- immune.genes
+
+for (i in 1:length(immune.genes)) {
+immune.genes.lines[[i]] <-  plotCounts(dds.DESeq.treatment, gene=immune.genes[i], intgroup=c("treatment"), replaced = TRUE, returnData = TRUE) %>%
+  rownames_to_column("sample") %>%
+  left_join(sample.info[,c("vial_label", "temperature", "ph", "tank", "treatment_tank")], by=c("sample"="vial_label")) %>%
+  filter(temperature!=3) %>%
+  mutate(treatment=fct_relevel(treatment, c("6_amb", "10_amb",  "10_low","6_low")))
+}
+
+df1 <- bind_rows(immune.genes.lines, .id = "gene_gadmor") %>% 
+  mutate(gene_gadmor=as.factor(gene_gadmor)) %>%
+  group_by(gene_gadmor, treatment) %>%
+  dplyr::summarize(mean=mean(count), median=median(count), sd=sd(count), cv=sd(count)/mean(count)) %>% ungroup()
+    
+df2 <- df1 %>% filter(treatment=="6_amb") %>% select(gene_gadmor, mean) %>% rename("mean"="control")
+
+left_join(df1, df2) %>%
+mutate(mean_diff=mean-control) %>% filter(treatment!="6_amb") %>%
+  group_by(gene_gadmor, treatment) %>% 
+
+  # One boxplot, points for all genes
+  ggplot(aes(x=treatment, y=log(mean_diff), color=treatment)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_point(size=2.5, position=position_jitter(w = 0.15,h = 0)) +
+    #geom_text(size=3.5, position=position_jitter(w = 0.15,h = 0)) +
+    theme_bw() + ylab("Δ from control, log(counts)") +
+    theme(axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size=10), legend.position = "none") +
+  scale_color_manual(name="Treatment", values=c("6_amb"="gray65", "6_low"=lighten("darkorange2", 0.25),
+                                                  "10_amb"=lighten("firebrick4", 0.45),  "10_low"="firebrick4")) #+
+```
+BOXPLOT OF LIPID GENES
+
+```{r}
+lipid.spid <- (david %>% filter(p_value<0.05, category=="UP_KW_BIOLOGICAL_PROCESS") %>% #
+             filter(grepl('Lipid', process)))$genes %>% strsplit(., ",") %>% unlist() %>% as.vector() %>%
+  gsub(" ", "", .)
+lipid.genes <- (counts.annot.gadmor %>% filter(gene_gadmor %in% degs.unique) %>% #use only genes that were DEGs
+                  filter(spid %in% lipid.spid))$gene_gadmor #and only those related to immune functions
+lipid.genes.lines <- vector("list", length(lipid.genes))
+names(lipid.genes.lines) <- lipid.genes
+
+for (i in 1:length(lipid.genes)) {
+lipid.genes.lines[[i]] <-  plotCounts(dds.DESeq.treatment, gene=lipid.genes[i], intgroup=c("treatment"), replaced = TRUE, returnData = TRUE) %>%
+  rownames_to_column("sample") %>%
+  left_join(sample.info[,c("vial_label", "temperature", "ph", "tank", "treatment_tank")], by=c("sample"="vial_label")) %>%
+  filter(temperature!=3) %>%
+  mutate(treatment=fct_relevel(treatment, c("6_amb", "10_amb",  "10_low","6_low")))
+}
+
+df1 <- bind_rows(lipid.genes.lines, .id = "gene_gadmor") %>% 
+  mutate(gene_gadmor=as.factor(gene_gadmor)) %>%
+  group_by(gene_gadmor, treatment) %>%
+  dplyr::summarize(mean=mean(count), median=median(count), sd=sd(count), cv=sd(count)/mean(count)) %>% ungroup()
+    
+df2 <- df1 %>% filter(treatment=="6_amb") %>% select(gene_gadmor, mean) %>% rename("mean"="control")
+
+left_join(df1, df2) %>%
+mutate(mean_diff=mean-control) %>% filter(treatment!="6_amb") %>%
+  group_by(gene_gadmor, treatment) %>% 
+
+  # One boxplot, points for all genes
+  ggplot(aes(x=treatment, y=-1*log(-1*mean_diff), color=treatment)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_point(size=2.5, position=position_jitter(w = 0.15,h = 0)) +
+    #geom_text(size=3.5, position=position_jitter(w = 0.15,h = 0)) +
+    theme_bw() + ylab("Δ from control, -log(-counts)") +
+    theme(axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5, size=10), legend.position = "none") +
+  scale_color_manual(name="Treatment", values=c("6_amb"="gray65", "6_low"=lighten("darkorange2", 0.25),
+                                                  "10_amb"=lighten("firebrick4", 0.45),  "10_low"="firebrick4")) #+
+  
+  # # Line plots
+  # ggplot(aes(x=treatment, y=log(mean), group=gene_gadmor)) + geom_line(size=.01) +
+  # theme_minimal() +
+  # #scale_x_continuous(breaks=c(1,2,3), labels=c("Ambient", "Moderate", "Low")) +
+  # theme(axis.title.x = element_blank(), plot.title = element_text(size=10), axis.text.x = element_text(hjust = 0.2)) +
+  # xlab("Per treatment mean of normalized counts") + ggtitle("Abundances of DEGs by\ntreatment & relative expression")
+  
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Plot genes of interest relating to enzyme analysis 
 

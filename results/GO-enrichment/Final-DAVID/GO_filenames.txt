@@ -1,0 +1,10 @@
+OA_Downregulated.txt	OA_Downregulated
+OA_Upregulated.txt	OA_Upregulated
+Cold_Upregulated.txt	Cold_Upregulated
+Cold_Downregulated.txt	Cold_Downregulated
+Warm_Downregulated.txt	Warm_Downregulated
+Warm_Upregulated.txt	Warm_Upregulated
+Cold-OA_Upregulated.txt	Cold-OA_Upregulated
+Cold-OA_Downregulated.txt	Cold-OA_Downregulated
+Warm-OA_Upregulated.txt	Warm-OA_Upregulated
+Warm-OA_Downregulated.txt	Warm-OA_Downregulated

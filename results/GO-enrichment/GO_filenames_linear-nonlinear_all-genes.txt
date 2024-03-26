@@ -1,0 +1,4 @@
+GO-enrich_linear-increase_all-genes.txt	linear-Increase
+GO-enrich_linear-decrease_all-genes.txt	linear-Decrease
+GO-enrich_nonlinear_Ashaped_all-genes.txt	nonlinear-Convex
+GO-enrich_nonlinear_Ushaped_all-genes.txt	nonlinear-Concave
