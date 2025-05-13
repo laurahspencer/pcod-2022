@@ -62,6 +62,7 @@ load( file = "../references/gadMor.blast")
 load(file = "../references/gadMor.blast.GO")
 ```
 
+
 ## Library summary stats
 
 #### No. of fragments per sample? 
@@ -155,6 +156,7 @@ ggplot(data = data.frame(rowSums(counts.t != 0, na.rm=TRUE)) %>%
            geom_bar(aes(x=sample, y=count.total), stat = "identity") + ggtitle("Total # genes by sample") + 
              theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())#) 
 ```
+
 ```{r}
 #### Merge sample key info to count data, then sort, and generate heat map for initial inspection by treatment 
 
@@ -175,6 +177,7 @@ save(counts.tk, file = "../results/deseq2/counts.tk")
 
 all(rownames(counts.tk) == counts.tk[-1:-6] %>% t() %>% colnames()) #check that rownames of untransformed matrix match column names of transformed matrix. Should print 'TRUE' 
 ```
+
 ```{r}
 ##### If using counts which included multimapped counted fractionally, need to round to the nearest integer for DESeq2. 
 #_Not needed for gene counts produced by STAR aligner_
@@ -458,6 +461,8 @@ dds.treatment.all <- DESeqDataSetFromMatrix(countData = counts.tk[-1:-6] %>% t()
                               colData = counts.tk[,"treatment", drop=FALSE] ,
                               design = ~ treatment)
 dds.DESeq.treatment.all <- DESeq(dds.treatment.all)
+
+vsd.treatment.all <- varianceStabilizingTransformation(dds.treatment.all, blind=FALSE)
 ```
 
 #### Back to DESeq analysis
@@ -496,8 +501,8 @@ dds.treatment.tank <- DESeqDataSetFromMatrix(countData = counts.tk[, !(colnames(
 # vsd.pH <- varianceStabilizingTransformation(dds.ph, blind=FALSE)
 # vsd.temperature <- varianceStabilizingTransformation(dds.temperature, blind=FALSE)
 vsd.treatment <- varianceStabilizingTransformation(dds.treatment, blind=FALSE)
-#vsd.tank <- varianceStabilizingTransformation(dds.tank, blind=FALSE)
-#vsd.treatment.tank <- varianceStabilizingTransformation(dds.treatment.tank, blind=FALSE)
+vsd.tank <- varianceStabilizingTransformation(dds.tank, blind=FALSE)
+vsd.treatment.tank <- varianceStabilizingTransformation(dds.treatment.tank, blind=FALSE)
 
 # Save vsd-transformed count dataframes for later use 
 # save(vsd.pH, file = "../results/deseq2/vsd.pH")
@@ -678,12 +683,13 @@ NOTE: Hover over points to see the sample numbers
     theme_minimal()+ stat_ellipse() #, tooltip = "text")
 
 
-# # PCA with points color coded by tank 
-# #ggplotly(
-#   plotPCA(vsd.tank, intgroup="tank") + 
-#            ggtitle("PCA by Tank (var-stabilizing transformed)") + 
-#     geom_point(size=3, aes(text=colnames(vsd.tank))) + 
-#    theme_minimal()#, tooltip = "text")
+# PCA with points color coded by tank
+colData(dds.treatment.tank)
+  #ggplotly(
+  plotPCA(vsd.treatment.tank, intgroup="treatment_tank", ntop=14400) +
+           ggtitle("PCA by Tank (var-stabilizing transformed)") +
+    geom_point(size=3, aes(text=colnames(vsd.tank))) +
+   theme_minimal()#, tooltip = "text")
 
 # PCA.data.treatment <- plotPCA(vsd.treatment, intgroup=c("treatment"), returnData=TRUE)
 # save(PCA.data.treatment, file="../results/PCA.data.treatment")
@@ -846,19 +852,21 @@ tab.expr.annot <- left_join(tab.expr, sample.info, by=c("sample.id"="vial_label"
 ## Figure 1 - PCA 1x2
 
 ```{r}
-pdf(file="../results/deseq2/Figure1_PCA.pdf", height = 5.25, width = 7.5)
+#pdf(file="../results/deseq2/Figure1_PCA.pdf", height = 5.25, width = 7.5)
+pdf(file="../manuscript/CJFAS-submission/Fig1.pdf", height = 3.5, width = 5)
 ggscatter(tab.expr.annot %>%
             mutate(treatment=factor(treatment, 
                              levels=c("6_amb", "6_low", "10_amb", 
                                       "10_low", "3_amb", "3_low"), ordered = T)), 
           group=c("temperature", "ph"),
-          x="EV1.all", y="EV2.all", col="treatment", shape="ph", size=3.5, alpha=0.85, 
-          ellipse = FALSE, star.plot = FALSE) +
+          x="EV1.all", y="EV2.all", col="treatment", shape="ph", size=2.25, alpha=0.8, 
+          ellipse = FALSE, star.plot = TRUE, star.size=0.1) +
   theme_minimal() + ggtitle("Global gene expression PC1xPC2") + 
   xlab(paste("PC1 (", round(pc.percent[1], digits = 1), "%)", sep="")) + 
   ylab(paste("PC2 (", round(pc.percent[2], digits = 1), "%)", sep="")) + 
-  theme(legend.position = "right", legend.text=element_text(size=8), legend.title=element_text(size=9)) + 
-  scale_color_manual(name="Treatment", 
+  theme(axis.text = element_text(size=8), title = element_text(size=8),
+        legend.position = "right", legend.text=element_text(size=7), legend.title=element_text(size=7)) + 
+  scale_color_manual(name=NULL, 
                      values=c("6_amb"="gray65",
                               "6_low"=lighten("darkorange2", 0.25), 
                               "10_amb"=lighten("firebrick4", 0.45), 
@@ -866,14 +874,205 @@ ggscatter(tab.expr.annot %>%
                               "3_amb"=lighten("navyblue", 0.45),
                               "3_low"="navyblue"),
                      labels=c("6_amb"="Control",
-                              "6_low"="High pCO2", 
-                              "10_amb"="Warm Temperature", 
-                              "10_low"="Warm Temperature + High pCO2", 
-                              "3_amb"="Cold Temperature",
-                              "3_low"="Cold Temperature + High pCO2")) +
+                              "6_low"="Acidified", 
+                              "10_amb"="Warm", 
+                              "10_low"="Warm + Acidified", 
+                              "3_amb"="Cold",
+                              "3_low"="Cold + Acidified")) +
   scale_shape_manual(guide="none", values=c("amb"=19, "low"=17)) + 
-  guides(colour = guide_legend(override.aes = list(size=3.5, linetype="blank", shape=c(19, 17, 19, 17, 19, 17))))
+  guides(colour = guide_legend(override.aes = 
+                                 list(size=2.5, linetype="blank", shape=c(19, 17, 19, 17, 19, 17))))
 dev.off()
+```
+
+EXPLORE TANK EFFECTS FOR REVISION
+
+This PCA also suggests that two samples - 137 and 194 - are outliers. Consider removing. 
+
+### PCAs using prcomp
+
+This enables screeplot to ID significant PCs, calculates variance, etc. 
+
+```{r, warning=F, message=F}
+#pca.princomp <- prcomp(cov(assay(vsd.treatment)), scale=F) #scale=F for variance-covariance matrix
+pca.tank <- prcomp(t(assay(vsd.treatment.tank))) # using the same code that's under the hood of PlotPCA but using all genes 
+pca.eigenval(pca.tank) #The Proporation of Variance = %variance 
+perc.tank <- pca.eigenval(pca.tank)[2,1:7]*100
+screeplot(pca.tank, bstick=TRUE) #looks like PC 1-34 are significant 
+perc.tank[1:2] %>% sum()
+
+#### Generate dataframe with prcomp results 
+tab.tank <- data.frame(sample.id = colnames(assay(vsd.treatment.tank)),
+    EV1.all = pca.tank$x[,1],    # the first eigenvector
+    EV2.all = pca.tank$x[,2],    # the second eigenvector
+    EV3.all = pca.tank$x[,3],    # the third eigenvector
+    EV4.all = pca.tank$x[,4],    # the fourth eigenvector
+    EV5.all = pca.tank$x[,5],    # the fourth eigenvector
+    EV6.all = pca.tank$x[,6],    # the fourth eigenvector
+    EV7.all = pca.tank$x[,7],
+    stringsAsFactors = FALSE)
+tab.tank.annot <- left_join(tab.tank, sample.info, by=c("sample.id"="vial_label")) %>% droplevels()
+
+#pdf(file="../manuscript/CJFAS-submission/Fig1.pdf", height = 3.5, width = 5)
+tab.tank.annot %>% mutate(tank_rep=case_when(
+  tank %in% c(1,11,19,13,3,7)~"1",
+  tank %in% c(2,12,14,4,8)~"2",
+  tank %in% c(9,23,21,17,15)~"3",
+  tank %in% c(10,24,22,18,16)~"4")) %>% 
+  ggplot(aes(x=treatment, y=EV1.all, color=treatment, shape=tank_rep)) + 
+  geom_boxplot(outlier.shape = NULL) +
+  geom_jitter(width=0.25)
+
+
+ggscatter(tab.tank.annot %>% 
+            mutate(tank_rep=case_when(
+  tank %in% c(1,11,19,13,3,7)~"1",
+  tank %in% c(2,12,14,4,8)~"2",
+  tank %in% c(9,23,21,17,15)~"3",
+  tank %in% c(10,24,22,18,16)~"4")) %>%
+            mutate(treatment=factor(treatment, 
+                             levels=c("6_amb", "6_low", "10_amb", 
+                                      "10_low", "3_amb", "3_low"), ordered = T)), 
+          group=c("temperature", "tank"),
+          x="EV1.all", y="EV2.all", col="treatment", shape="tank_rep", size=3.5, alpha=0.6, 
+          ellipse = FALSE, star.plot = T, star.size=0.1) +
+  theme_minimal() + ggtitle("Global gene expression PC1xPC2") + 
+  xlab(paste("PC1 (", round(pc.percent[1], digits = 1), "%)", sep="")) + 
+  ylab(paste("PC2 (", round(pc.percent[2], digits = 1), "%)", sep="")) + 
+  theme(axis.text = element_text(size=8), title = element_text(size=8),
+        legend.position = "right", legend.text=element_text(size=7), legend.title=element_text(size=7)) + 
+  scale_color_manual(name=NULL,
+                     values=c("6_amb"="gray65",
+                              "6_low"=lighten("darkorange2", 0.25),
+                              "10_amb"=lighten("firebrick4", 0.45),
+                              "10_low"="firebrick4",
+                              "3_amb"=lighten("navyblue", 0.45),
+                              "3_low"="navyblue"),
+                     labels=c("6_amb"="Control",
+                              "6_low"="Acidified",
+                              "10_amb"="Warm",
+                              "10_low"="Warm + Acidified",
+                              "3_amb"="Cold",
+                              "3_low"="Cold + Acidified")) +
+  scale_shape_manual(values=c(15,16,17,18)) + #guide="none", 
+  guides(colour = guide_legend(override.aes =
+         list(size=2.5, linetype="blank", shape=c(19, 17, 19, 17, 19, 17))))
+
+centroids <- tab.tank.annot %>%
+  group_by(treatment) %>%
+  summarise(across(c(EV1.all, EV2.all), mean), .groups = "drop")
+
+# Compute Euclidean distance to centroid
+tab.tank.annot <- tab.tank.annot %>% mutate(tank_rep=case_when(
+  tank %in% c(1,11,19,13,3,7)~"1",
+  tank %in% c(2,12,14,4,8)~"2",
+  tank %in% c(9,23,21,17,15)~"3",
+  tank %in% c(10,24,22,18,16)~"4")) %>%
+  left_join(centroids, by = "treatment", suffix = c("", "_centroid")) %>%
+  mutate(euclidean_dist = sqrt((EV1.all - EV1.all_centroid)^2 + (EV2.all - EV2.all_centroid)^2)) %>% 
+  mutate(treatment=factor(treatment, 
+                 levels=c("6_amb", "6_low", "10_amb", 
+                          "10_low", "3_amb", "3_low"), ordered = T))
+
+hist(log(tab.tank.annot$euclidean_dist))
+summary(aov(log(euclidean_dist)~treatment, tab.tank.annot))
+TukeyHSD(aov(log(euclidean_dist)~treatment, tab.tank.annot))
+
+plot(TukeyHSD(aov(log(euclidean_dist)~treat, tab.tank.annot %>% 
+  mutate(treat=case_when(
+    treatment=="3_amb"~"Cold",
+    treatment=="3_low"~"Cold+OA",
+    treatment=="10_amb"~"Warm",
+    treatment=="10_low"~"Warm+OA",
+    treatment=="6_low"~"OA",
+    treatment=="6_amb"~"Control",
+  )))), las=2)
+
+tab.tank.annot %>%
+  ggplot(aes(x=treatment, color=treatment, y=euclidean_dist)) + 
+  geom_boxplot(outlier.shape = NA) + geom_jitter(aes(shape=tank_rep), 
+                                                 alpha=0.75, size=2, width = 0.25) + 
+  theme_minimal() +
+    scale_color_manual(name=NULL,
+                     values=c("6_amb"="gray65",
+                              "6_low"=lighten("darkorange2", 0.25),
+                              "10_amb"=lighten("firebrick4", 0.45),
+                              "10_low"="firebrick4",
+                              "3_amb"=lighten("navyblue", 0.45),
+                              "3_low"="navyblue"),
+                     labels=c("6_amb"="Control",
+                              "6_low"="Acidified",
+                              "10_amb"="Warm",
+                              "10_low"="Warm + Acidified",
+                              "3_amb"="Cold",
+                              "3_low"="Cold + Acidified")) +
+  ggtitle("Distance to treatment centroid, PC1xPC2") + 
+  ylab("Euclidean distance") + xlab("Treatment") + 
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+#dev.off()
+```
+## Explore CV 
+
+```{r}
+# Calculate per-gene variance within each tank
+gene_var_by_tank <- assay(vst(dds.DESeq.treatment)) %>%
+  as.data.frame() %>%
+  rownames_to_column("gene") %>%
+  pivot_longer(-gene, names_to = "sample", values_to = "expression") %>%
+  left_join(sample.info %>% select(treatment, temperature, ph, tank, vial_label), by = c("sample"="vial_label")) %>%
+  group_by(gene, treatment, tank) %>%
+  summarise(variance = var(expression), .groups = "drop")%>% 
+  mutate(treat=case_when(
+    treatment=="3_amb"~"Cold",
+    treatment=="3_low"~"Cold+OA",
+    treatment=="10_amb"~"Warm",
+    treatment=="10_low"~"Warm+OA",
+    treatment=="6_low"~"OA",
+    treatment=="6_amb"~"Control",
+  ))
+
+# Calculate per-gene variance within each treatment
+gene_var_by_treatment <- assay(vst(dds.DESeq.treatment)) %>%
+  as.data.frame() %>%
+  rownames_to_column("gene") %>%
+  pivot_longer(-gene, names_to = "sample", values_to = "expression") %>%
+  left_join(sample.info %>% select(treatment, temperature, ph, tank, vial_label), by = c("sample"="vial_label")) %>%
+  group_by(gene, treatment) %>%
+  summarise(variance = var(expression), .groups = "drop") %>% 
+  mutate(treat=case_when(
+    treatment=="3_amb"~"Cold",
+    treatment=="3_low"~"Cold+OA",
+    treatment=="10_amb"~"Warm",
+    treatment=="10_low"~"Warm+OA",
+    treatment=="6_low"~"OA",
+    treatment=="6_amb"~"Control",
+  ))
+
+# Boxplot of variance per treatment
+gene_var_by_treatment %>% 
+ggplot(aes(x = treat, y = variance)) +
+  geom_boxplot() + 
+  scale_y_log10() +  # Log scale to handle high variability
+  theme_minimal() +
+  labs(title = "Variance of Gene Expression by Treatment", y = "Gene Expression Variance")
+
+# Mean by treatment 
+gene_var_by_treatment %>% group_by(treat) %>% summarize(mean=round(mean(variance), digits = 3), sd=round(sd(variance), digits=3)) 
+
+# Mean of mean tank variance 
+gene_var_by_tank %>% group_by(treat, tank) %>% summarize(mean=round(mean(variance), digits = 3), sd=round(sd(variance), digits=3)) %>% ungroup() %>% 
+  summarize(mean_var_tank=mean(mean, na.rm=T),sd_var_tank=sd(mean, na.rm=T))
+
+# normal distribution after log transformation? 
+hist(log(gene_var_by_treatment$variance))
+leveneTest(expression ~ treatment, data=expr.testing)
+summary(aov(variance~treat,gene_var_by_treatment))
+par(mar = c(5, 9, 4, 2))
+plot(TukeyHSD(aov(variance~treat,gene_var_by_treatment)), las=2)
+```
+```{r}
+?pairwise.wilcox.test
 ```
 
 FOR PACIFIC COD WORKSHOP, NOVEMBER 2023. MAKE PCA SHOWING ONLY EFFECTS OF OA AND WARMING 
@@ -1412,11 +1611,12 @@ NOTE: using the DeSeq2 function `plotCounts` plots original counts, i.e. those t
 
 
 # Plot genes using Uniprot IDs
-
+install.packages("rSHAPE")
+require(rSHAPE)
 test <- counts.annot.gadmor %>% 
-  filter(spid %in%
-           c("P49285"))
-
+#  filter(spid %in% c("P49285"))
+#  filter(gene_gadmor %in% c("pcdh8"))
+  filter(gene_id %in% as.character(quote(c(115533477, 115552173, 115552184, 115552186, 115552451, 115552198, 115552771, 115552177, 115552200, 115552179, 115552774, 115552456, 115552765, 115552205, 115552766, 115547299, 115561650, 115552768, 115549085, 115552170, 115552181, 115552160))))
   
 for (i in 1:nrow(test)) {
 a <-  plotCounts(dds.DESeq.treatment, gene=test$gene_gadmor[i], intgroup=c("treatment"), replaced = TRUE, returnData = TRUE) %>%
@@ -1493,7 +1693,7 @@ Crazy- when I remove PCG061 from the dataset there are NO DEGs between 10_amb an
 # find index number for row containing sample PCG061
 ind <- grep("PCG061", rownames(counts.tk))
 
-dds.test <- DESeqDataSetFromMatrix(countData = counts.tk[-ind, -1:-5] %>% t(),
+dds.test <- DESeqDataSetFromMatrix(countData = counts.tk[-ind, -1:-6] %>% t(),
                               colData = counts.tk[-ind,"treatment", drop=FALSE] ,
                               design = ~ treatment)
 dds.test.DESeq <- DESeq(dds.test)
@@ -1507,7 +1707,7 @@ Way fewer DEGs - 2,922 vs 4,657
 
 ```{r}
 ind <- grep("PCG193", rownames(counts.tk)) # find index number for row containing sample PCG061
-dds.test <- DESeqDataSetFromMatrix(countData = counts.tk[-ind, -1:-5] %>% t(),
+dds.test <- DESeqDataSetFromMatrix(countData = counts.tk[-ind, -1:-6] %>% t(),
                               colData = counts.tk[-ind,"treatment", drop=FALSE] ,
                               design = ~ treatment)
 dds.test.DESeq <- DESeq(dds.test)
@@ -1907,6 +2107,8 @@ c(outs.diffex.3.ph$gene, outs.diffex.6.ph$gene, outs.diffex.10.ph$gene,
 
 # How many genes are going to be removed due to "tank effect?"
 c(diffex.tank.3_low, diffex.tank.6_amb, diffex.tank.6_low, diffex.tank.10_amb, diffex.tank.10_low) %>% unique() %>% length()
+mean(c(length(diffex.tank.3_low), length(diffex.tank.6_amb), length(diffex.tank.6_low), length(diffex.tank.10_amb), length(diffex.tank.10_low)))
+sd(c(length(diffex.tank.3_low), length(diffex.tank.6_amb), length(diffex.tank.6_low), length(diffex.tank.10_amb), length(diffex.tank.10_low)))
 ```
 ```{r}
 # Remove genes from DEG lists that: 
@@ -1942,7 +2144,6 @@ save(diffex.temp.6.10.low.filt, file = "../results/deseq2/diffex.temp.6.10.low.f
 save(diffex.both.3low.6amb.filt, file = "../results/deseq2/diffex.both.3low.6amb.filt")
 save(diffex.both.10low.6amb.filt, file = "../results/deseq2/diffex.both.10low.6amb.filt")
 ```
-
 ### Summary stats for the number of Differentially Expressed Genes (DEGs)
 
 #### Bar plot of the number of DEGs identified in each contrast 
@@ -1981,7 +2182,165 @@ for (i in (1:length(degs))) {
 n.degs$contrast <- factor(n.degs$contrast, levels=n.degs$contrast, ordered = T)
 
 save(degs, file = "../results/deseq2/degs")
+n.degs.larvae <- n.degs
+save(n.degs.larvae, file = "../results/deseq2/n.degs.larvae")
 ```
+```{r}
+round(3411/21076, digits=3)
+round(2890/21076, digits=3)
+round(1990/21076, digits=3)
+round(1803/21076, digits=3)
+round(1259/21076, digits=3)
+```
+
+Explore biological variation within treatments (and tanks) for just DEGs 
+
+```{r}
+degs.vector <- unique(c(rownames(diffex.pH.6.filt), #OA
+rownames(diffex.temp.3.6.amb.filt), #cold 
+rownames(diffex.temp.6.10.amb.filt), #warm
+rownames(diffex.both.3low.6amb.filt), #cold-OA
+rownames(diffex.both.10low.6amb.filt))) #warm-OA
+
+length(degs.vector)
+var_df_degs_treat <- gene_var_by_treatment %>% filter(gene %in% degs.vector) %>% 
+  mutate(log_var=log(variance))
+var_df_degs_treat %>% group_by(treatment) %>% summarize(mean=round(mean(variance), digits = 3), sd=round(sd(variance), digits=3)) 
+
+var_df_degs_tank <- gene_var_by_tank %>% filter(gene %in% degs.vector) %>% 
+  mutate(log_var=log(variance)) 
+var_df_degs_tank %>% group_by(treatment, tank) %>% summarize(mean=round(mean(variance), digits = 3), sd=round(sd(variance), digits=3)) %>% ungroup() %>% 
+  summarize(mean_var_tank=mean(mean, na.rm=T),sd_var_tank=sd(mean, na.rm=T))
+
+
+# normal distribution after log transformation? 
+hist(var_df_degs$log_var)
+
+# Boxplot of variance per treatment
+var_df_degs %>% filter(log_var!="-Inf") %>% 
+ggplot(aes(x = treatment, y = log_var)) +
+  geom_boxplot() + 
+  theme_minimal() +
+  labs(title = "Log-variance of Gene Expression by Treatment", y = "Gene Expression Variance") + 
+  geom_point(data=var_df_degs %>% group_by(treatment) %>% summarize(mean=round(mean(variance), digits = 3), sd=round(sd(variance), digits=3)),
+             aes(x=treatment, y=log(mean)), size=4)
+
+summary(aov(log_var ~ treatment, data=var_df_degs%>% filter(log_var!="-Inf")))
+TukeyHSD(aov(log_var ~ treatment, data=var_df_degs%>% filter(log_var!="-Inf")))
+```
+PCA using just DEGs 
+
+### PCAs using prcomp
+
+This enables screeplot to ID significant PCs, calculates variance, etc. 
+
+```{r, warning=F, message=F}
+#pca.princomp <- prcomp(cov(assay(vsd.treatment)), scale=F) #scale=F for variance-covariance matrix
+pca.tank.degs <- prcomp(t(assay(vsd.treatment.tank)[degs.vector,])) # using the same code that's under the hood of PlotPCA but using all genes 
+pca.eigenval(pca.tank.degs) #The Proporation of Variance = %variance 
+perc.tank.degs <- pca.eigenval(pca.tank.degs)[2,1:7]*100
+screeplot(pca.tank.degs, bstick=TRUE) #looks like PC 1-34 are significant 
+perc.tank.degs[1:2] %>% sum()
+
+#### Generate dataframe with prcomp results 
+tab.tank.degs <- data.frame(sample.id = colnames(assay(vsd.treatment.tank)),
+    EV1.all = pca.tank.degs$x[,1],    # the first eigenvector
+    EV2.all = pca.tank.degs$x[,2],    # the second eigenvector
+    EV3.all = pca.tank.degs$x[,3],    # the third eigenvector
+    EV4.all = pca.tank.degs$x[,4],    # the fourth eigenvector
+    stringsAsFactors = FALSE)
+tab.tank.annot.degs <- left_join(tab.tank.degs, sample.info, by=c("sample.id"="vial_label")) %>% droplevels()
+
+#pdf(file="../manuscript/CJFAS-submission/Fig1.pdf", height = 3.5, width = 5)
+tab.tank.annot.degs %>% mutate(tank_rep=case_when(
+  tank %in% c(1,11,19,13,3,7)~"1",
+  tank %in% c(2,12,14,4,8)~"2",
+  tank %in% c(9,23,21,17,15)~"3",
+  tank %in% c(10,24,22,18,16)~"4")) %>% 
+  ggplot(aes(x=treatment, y=EV1.all, color=treatment, shape=tank_rep)) + 
+  geom_boxplot(outlier.shape = NULL) +
+  geom_jitter(width=0.25)
+
+
+ggscatter(tab.tank.annot.degs %>% 
+            mutate(tank_rep=case_when(
+  tank %in% c(1,11,19,13,3,7)~"1",
+  tank %in% c(2,12,14,4,8)~"2",
+  tank %in% c(9,23,21,17,15)~"3",
+  tank %in% c(10,24,22,18,16)~"4")) %>%
+            mutate(treatment=factor(treatment, 
+                             levels=c("6_amb", "6_low", "10_amb", 
+                                      "10_low", "3_amb", "3_low"), ordered = T)), 
+          group=c("temperature", "tank"),
+          x="EV1.all", y="EV2.all", col="treatment", shape="tank_rep", size=3.5, alpha=0.6, 
+          ellipse = FALSE, star.plot = T, star.size=0.1) +
+  theme_minimal() + ggtitle("Differential gene expression PC1xPC2") + 
+  xlab(paste("PC1 (", round(pc.percent[1], digits = 1), "%)", sep="")) + 
+  ylab(paste("PC2 (", round(pc.percent[2], digits = 1), "%)", sep="")) + 
+  theme(axis.text = element_text(size=8), title = element_text(size=8),
+        legend.position = "right", legend.text=element_text(size=7), legend.title=element_text(size=7)) + 
+  scale_color_manual(name=NULL,
+                     values=c("6_amb"="gray65",
+                              "6_low"=lighten("darkorange2", 0.25),
+                              "10_amb"=lighten("firebrick4", 0.45),
+                              "10_low"="firebrick4",
+                              "3_amb"=lighten("navyblue", 0.45),
+                              "3_low"="navyblue"),
+                     labels=c("6_amb"="Control",
+                              "6_low"="Acidified",
+                              "10_amb"="Warm",
+                              "10_low"="Warm + Acidified",
+                              "3_amb"="Cold",
+                              "3_low"="Cold + Acidified")) +
+  scale_shape_manual(values=c(15,16,17,18)) + #guide="none", 
+  guides(colour = guide_legend(override.aes =
+         list(size=2.5, linetype="blank", shape=c(19, 17, 19, 17, 19, 17))))
+
+centroids.degs <- tab.tank.annot.degs %>%
+  group_by(treatment) %>%
+  summarise(across(c(EV1.all, EV2.all), mean), .groups = "drop")
+
+# Compute Euclidean distance to centroid
+tab.tank.annot.degs <- tab.tank.annot.degs %>% mutate(tank_rep=case_when(
+  tank %in% c(1,11,19,13,3,7)~"1",
+  tank %in% c(2,12,14,4,8)~"2",
+  tank %in% c(9,23,21,17,15)~"3",
+  tank %in% c(10,24,22,18,16)~"4")) %>%
+  left_join(centroids.degs, by = "treatment", suffix = c("", "_centroid")) %>%
+  mutate(euclidean_dist = sqrt((EV1.all - EV1.all_centroid)^2 + (EV2.all - EV2.all_centroid)^2)) %>% 
+  mutate(treatment=factor(treatment, 
+                 levels=c("6_amb", "6_low", "10_amb", 
+                          "10_low", "3_amb", "3_low"), ordered = T))
+
+hist(log(tab.tank.annot.degs$euclidean_dist))
+summary(aov(log(euclidean_dist)~treatment, tab.tank.annot.degs))
+TukeyHSD(aov(log(euclidean_dist)~treatment, tab.tank.annot.degs))
+
+tab.tank.annot.degs %>%
+  ggplot(aes(x=treatment, color=treatment, y=euclidean_dist)) + 
+  geom_boxplot(outlier.shape = NA) + geom_jitter(aes(shape=tank_rep), 
+                                                 alpha=0.75, size=2, width = 0.25) + 
+  theme_minimal() +
+    scale_color_manual(name=NULL,
+                     values=c("6_amb"="gray65",
+                              "6_low"=lighten("darkorange2", 0.25),
+                              "10_amb"=lighten("firebrick4", 0.45),
+                              "10_low"="firebrick4",
+                              "3_amb"=lighten("navyblue", 0.45),
+                              "3_low"="navyblue"),
+                     labels=c("6_amb"="Control",
+                              "6_low"="Acidified",
+                              "10_amb"="Warm",
+                              "10_low"="Warm + Acidified",
+                              "3_amb"="Cold",
+                              "3_low"="Cold + Acidified")) +
+  ggtitle("Distance to treatment centroid, PC1xPC2") + 
+  ylab("Euclidean distance") + xlab("Treatment") + 
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+#dev.off()
+```
+
 
 Barplot of the number of DEGs 
 
@@ -2038,8 +2397,6 @@ ggplot(n.degs %>%
   guides(fill=guide_legend(nrow=3,byrow=TRUE,reverse=TRUE)) 
 ```
 
-
-
 Regenerate barplot for paper (Figure 3) with the number of upregulated / downregualted DEGs by treatment 
 
 ```{r}
@@ -2083,7 +2440,7 @@ n.degs.updown <- n.degs.updown %>%
 n.degs.updown
 
 # Barplot with no. of DEGs by single stressors vs. multiple stressors, including up/down regulation 
-pdf(file="../results/deseq2/DEGs_barplot_single-vs-double-stressor-up-down.pdf", height = 2, width = 7)
+#pdf(file="../results/deseq2/DEGs_barplot_single-vs-double-stressor-up-down.pdf", height = 2, width = 7)
 ggplot(n.degs.updown, 
        aes(x=stressor, y=n.degs, fill=stressor)) + 
   geom_bar_pattern(aes(alpha=stressor, pattern=response), stat = "identity", color="gray20", size=0.05,
@@ -2096,11 +2453,223 @@ ggplot(n.degs.updown,
   scale_alpha_manual(name=NULL, values=c(.7, .4, .7, .4, .4)) +
   scale_pattern_manual(values = c("stripe","none")) +
   guides(fill=guide_legend(nrow=3,byrow=TRUE,reverse=TRUE)) 
-dev.off()
+#dev.off()
+```
+Barplot showing abs( log fold change ) with error bars 
+
+```{r}
+bind_rows(diffex.temp.6.10.amb.filt %>% as.data.frame() %>% mutate(stressor="Warm temperature"), 
+          diffex.both.10low.6amb.filt %>% as.data.frame() %>% mutate(stressor="Warm temperature + High pCO2"),   
+          diffex.pH.6.filt %>% as.data.frame() %>% mutate(stressor="High pCO2"), 
+          diffex.temp.3.6.amb.filt %>% as.data.frame() %>% mutate(stressor="Cold temperature"), 
+          diffex.both.3low.6amb.filt %>% as.data.frame() %>% mutate(stressor="Cold temperature + High pCO2")) %>% 
+  mutate(response=case_when(log2FoldChange>0~"upregulated", log2FoldChange<0~"downregulated"),
+         SE = (2^(log2FoldChange + lfcSE) - 2^(log2FoldChange - lfcSE)) / 2) %>% 
+  group_by(stressor, response) %>% 
+  summarize(mean.lfc=mean(log2FoldChange), mean.lfcse=mean(lfcSE), mean.se=mean(SE)) %>% 
+  mutate(mean.effect=2^abs(mean.lfc)) %>% 
+  arrange(response) %>% ungroup() %>%
+  mutate(mean.effect.plot=case_when(response=="downregulated"~-1*mean.effect, TRUE~mean.effect)) %>% 
+  left_join(n.degs.updown, by=c("stressor", "response")) %>% 
+  mutate(mean.effect.plot=case_when(response=="downregulated"~-1*(mean.effect-1), response=="upregulated"~mean.effect-1)) %>%
+  mutate(response=case_when(response=="downregulated"~"Lower gene expression", TRUE~"Higher gene expression")) %>% 
+  mutate(stressor=factor(stressor, ordered = T, levels=c("High pCO2", "Warm temperature", "Warm temperature + High pCO2", "Cold temperature", "Cold temperature + High pCO2"))) %>%
+   mutate(treat=factor(case_when(
+   stressor=="High pCO2"~"OA",
+   stressor=="Cold temperature"~"Cold",
+   stressor=="Warm temperature"~"Warm",
+   stressor=="Cold temperature + High pCO2"~"Cold+OA",
+   stressor=="Warm temperature + High pCO2"~"Warm+OA"),
+   ordered=T, levels=c("Cold+OA","Cold","OA","Warm+OA","Warm"))) %>% 
+  
+  ggplot(aes(x=n.degs, y=mean.effect, color=stressor)) + geom_point(size=4.5, alpha=0.75) +
+  geom_errorbar(aes(ymin=mean.effect-mean.se, ymax=mean.effect+mean.se), position=position_dodge(0.05)) + 
+  xlab("Number of differentially expressed genes") + 
+  ylab("Effect size (fold change, mean \u00B1 SE)") + #scale_y_continuous(labels = percent_format()) +
+  
+      scale_color_manual(name=NULL,
+                     values=c("High pCO2"=lighten("darkorange2", 0.25),
+                              "Warm temperature"=lighten("firebrick4", 0.45),
+                              "Warm temperature + High pCO2"="firebrick4",
+                              "Cold temperature"=lighten("navyblue", 0.45),
+                              "Cold temperature + High pCO2"="navyblue"),
+                     labels=c("High pCO2"="Acidified",
+                              "Warm temperature"="Warm",
+                              "Warm temperature + High pCO2"="Warm + Acidified",
+                              "Cold temperature"="Cold",
+                              "Cold temperature + High pCO2"="Cold + Acidified")) +
+  scale_shape_manual(name=NULL, values=c(17, 19)) + 
+  scale_x_continuous(breaks=c(500,1000,1500,2000), labels=c(500,1000,1500,2000), limits = c(500, 2000)) + 
+  facet_wrap(~response, scales = "free_y", nrow=2) + theme_minimal() + 
+  theme(axis.title.x = element_text(margin = margin(t = 10)))
+```
+```{r}
+Plot2a <- n.degs.updown %>% 
+         mutate(treat=factor(case_when(
+           stressor=="High pCO2"~"OA",
+           stressor=="Cold temperature"~"Cold",
+           stressor=="Warm temperature"~"Warm",
+           stressor=="Cold temperature + High pCO2"~"Cold+OA",
+           stressor=="Warm temperature + High pCO2"~"Warm+OA"),
+           ordered=T, levels=c("Cold+OA","Cold","OA","Warm+OA","Warm"))) %>% 
+  ggplot(aes(x=treat, y=n.degs, fill=treat)) + 
+  geom_bar_pattern(aes(alpha=treat, pattern=rev(response)), stat = "identity", color="gray20", size=0.05,
+                   pattern_fill="black", pattern_alpha=0.2, pattern_density=0.01, pattern_spacing=0.025) +
+  xlab(NULL) + ylab("Number DEGs (% of all genes)") + ggtitle("Number Differentially Expressed Genes") + 
+  theme_pubr() + scale_y_continuous(label=comma, limits = c(0,4000)) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  scale_fill_manual(name=NULL, #labels=c("Cold", "Cold+OA","Warm+OA","Warm","OA"), 
+                    values=c("Cold+OA"="navyblue", "Cold"="navyblue","OA"="darkorange2","Warm+OA"="firebrick4","Warm"="firebrick4")) +
+  scale_alpha_manual(name=NULL, values=c(.7, .4, .7, .7, .4)) +
+  scale_pattern_manual(values = c("none","stripe")) +
+  guides(fill=guide_legend(nrow=3,byrow=TRUE,reverse=TRUE)) 
+```
+
+```{r}
+Plot2b <- 
+  bind_rows(diffex.temp.6.10.amb.filt %>% as.data.frame() %>% mutate(stressor="Warm temperature"), 
+          diffex.both.10low.6amb.filt %>% as.data.frame() %>% mutate(stressor="Warm temperature + High pCO2"),   
+          diffex.pH.6.filt %>% as.data.frame() %>% mutate(stressor="High pCO2"), 
+          diffex.temp.3.6.amb.filt %>% as.data.frame() %>% mutate(stressor="Cold temperature"), 
+          diffex.both.3low.6amb.filt %>% as.data.frame() %>% mutate(stressor="Cold temperature + High pCO2")) %>% 
+  mutate(response=case_when(log2FoldChange>0~"upregulated", log2FoldChange<0~"downregulated"),
+         SE = (2^(log2FoldChange + lfcSE) - 2^(log2FoldChange - lfcSE)) / 2) %>% 
+  group_by(stressor, response) %>% 
+  summarize(mean.lfc=mean(log2FoldChange), mean.lfcse=mean(lfcSE), mean.se=mean(SE)) %>% 
+  mutate(mean.effect=2^abs(mean.lfc)) %>% 
+  arrange(response) %>% ungroup() %>%
+  mutate(mean.effect.plot=case_when(response=="downregulated"~-1*mean.effect, TRUE~mean.effect)) %>% 
+  left_join(n.degs.updown, by=c("stressor", "response")) %>% 
+  mutate(mean.effect.plot=case_when(response=="downregulated"~-1*(mean.effect-1), response=="upregulated"~mean.effect-1)) %>%
+  mutate(response=case_when(response=="downregulated"~"Lower gene expression", TRUE~"Higher gene expression")) %>% 
+  mutate(stressor=factor(stressor, ordered = T, levels=c("High pCO2", "Warm temperature", "Warm temperature + High pCO2", "Cold temperature", "Cold temperature + High pCO2"))) %>%
+   mutate(treat=factor(case_when(
+   stressor=="High pCO2"~"OA",
+   stressor=="Cold temperature"~"Cold",
+   stressor=="Warm temperature"~"Warm",
+   stressor=="Cold temperature + High pCO2"~"Cold+OA",
+   stressor=="Warm temperature + High pCO2"~"Warm+OA"),
+   ordered=T, levels=c("Cold+OA","Cold","OA","Warm+OA","Warm"))) %>% 
+  
+  ggplot(aes(x=treat, y=mean.effect, color=treat, fill=treat)) + 
+  geom_errorbar(aes(ymin=mean.effect-mean.se, ymax=mean.effect+mean.se), position=position_dodge(0.05), width=0.2) + 
+  geom_tile_pattern(aes(pattern=response, pattern_fill=response, color=treat, fill=treat), width=0.3, height=0.02, fill="white", size=0.3,
+                   pattern_alpha=0.2, pattern_density=0.01, pattern_spacing=0.025) +
+  xlab(NULL) + ggtitle("Effect size") + 
+  ylab("Fold change, mean \u00B1 SE") + #scale_y_continuous(labels = percent_format()) +
+  scale_color_manual(name=NULL,
+       values=c("OA"=lighten("darkorange2", 0.25),
+                "Warm"=lighten("firebrick4", 0.45),
+                "Warm+OA"="firebrick4",
+                "Cold"=lighten("navyblue", 0.45),
+                "Cold+OA"="navyblue")) +
+  scale_pattern_manual(values = c("none", "stripe")) +
+  scale_pattern_fill_manual(values = c("OA"=lighten("darkorange2", 0.25),
+                "Warm"=lighten("firebrick4", 0.45),
+                "Warm+OA"="firebrick4",
+                "Cold"=lighten("navyblue", 0.45),
+                "Cold+OA"="navyblue")) +
+  facet_wrap(~response, scales = "free_y", nrow=2) + theme_pubr() + 
+  theme(legend.position = "none", axis.title.x = element_text(margin = margin(t = 10)),
+        plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+pdf(file = "../manuscript/CJFAS-revision2/Figure-2-replaced4.pdf", width=8, height=5.5)
+ggarrange(Plot2a, Plot2b, nrow = 1)
+dev.off
+```
+
+
+### Heat maps of DEGs 
+
+#### Cold treatments 
+
+```{r}
+diffex.cold.heatmap <- subset(assay(vsd.treatment), rownames(dds.DESeq.treatment) %in% unique(c(rownames(diffex.temp.3.6.amb.filt),rownames(diffex.both.3low.6amb.filt))))
+nrow(diffex.cold.heatmap)
+# Create a dataframe to annotate heatmap with treatments 
+dds.cold.df <- sample.info[match(colnames(diffex.cold.heatmap), sample.info$vial_label),c("vial_label", "treatment", "tank", "temperature", "ph")] %>%
+  remove_rownames() %>% column_to_rownames(var = "vial_label")
+
+# Make sure treatment order is correct
+all(colnames(diffex.cold.heatmap) == rownames(dds.cold.df)) #double check that samples are still in same order 
+
+# All DEGs among any pH treatment (within temperatures)
+pheatmap(diffex.cold.heatmap[,(sample.info%>%filter(treatment%in%c("6_amb","3_amb","3_low")))$vial_label], 
+         cluster_rows=TRUE, cluster_cols=F, treeheight_row = 0, #show_colnames = F,
+         show_rownames=FALSE, na.rm=TRUE, 
+         annotation_colors = list(treatment= 
+                              c("6_amb"="gray65","6_low"=lighten("darkorange2", 0.25),
+                              "10_amb"=lighten("firebrick4", 0.45),
+                              "10_low"="firebrick4",
+                              "3_amb"=lighten("navyblue", 0.45),
+                              "3_low"="navyblue")),
+         scale="row", main = "Differentially expressed genes (DEGs), cold treatments", 
+         annotation_col=dds.pH.df[,"treatment", drop=FALSE], fontsize = 8,
+         cutree_rows = 2,  border_color=F)
 
 ```
 
-### Heat maps of DEGs 
+Warm Treatments 
+```{r}
+diffex.warm.heatmap <- subset(assay(vsd.treatment), rownames(dds.DESeq.treatment) %in% unique(c(rownames(diffex.temp.6.10.amb.filt),rownames(diffex.both.10low.6amb.filt))))
+nrow(diffex.warm.heatmap)
+
+# Create a dataframe to annotate heatmap with treatments 
+dds.warm.df <- sample.info[match(colnames(diffex.warm.heatmap), sample.info$vial_label),c("vial_label", "treatment", "tank", "temperature", "ph")] %>%
+  remove_rownames() %>% column_to_rownames(var = "vial_label")
+
+# Make sure treatment order is correct
+all(colnames(diffex.warm.heatmap) == rownames(dds.warm.df)) #double check that samples are still in same order 
+
+# All DEGs among any pH treatment (within temperatures)
+pheatmap(diffex.warm.heatmap[,(sample.info%>% ungroup() %>% filter(treatment%in%c("6_amb","10_amb","10_low")) %>% select(treatment, vial_label) %>% 
+    arrange(desc(treatment)))$vial_label ], 
+         cluster_rows=TRUE, cluster_cols=F, treeheight_row = 0, #show_colnames = F,
+         show_rownames=FALSE, na.rm=TRUE, 
+         annotation_colors = list(treatment= 
+                              c("6_amb"="gray65","6_low"=lighten("darkorange2", 0.25),
+                              "10_amb"=lighten("firebrick4", 0.45),
+                              "10_low"="firebrick4",
+                              "3_amb"=lighten("navyblue", 0.45),
+                              "3_low"="navyblue")),
+         scale="row", main = "Differentially expressed genes (DEGs), warm treatments vs. control", 
+         annotation_col=dds.pH.df[,"treatment", drop=FALSE], fontsize = 8,
+         cutree_rows = 2,  border_color=F)
+```
+
+Acidified Treatment 
+```{r}
+diffex.acid.heatmap <- subset(assay(vsd.treatment), rownames(dds.DESeq.treatment) %in% unique(c(rownames(diffex.pH.6.filt))))
+nrow(diffex.acid.heatmap)
+
+# Create a dataframe to annotate heatmap with treatments 
+dds.acid.df <- sample.info[match(colnames(diffex.acid.heatmap), sample.info$vial_label),c("vial_label", "treatment", "tank", "temperature", "ph")] %>%
+  remove_rownames() %>% column_to_rownames(var = "vial_label")
+
+# Make sure treatment order is correct
+all(colnames(diffex.acid.heatmap) == rownames(dds.acid.df)) #double check that samples are still in same order 
+
+# All DEGs among any pH treatment (within temperatures)
+pheatmap(diffex.warm.heatmap[,(sample.info%>% ungroup() %>% filter(treatment%in%c("6_amb","6_low")) %>% select(treatment, vial_label) %>% 
+    arrange(treatment))$vial_label ], 
+         cluster_rows=TRUE, cluster_cols=F, treeheight_row = 0, #show_colnames = F,
+         show_rownames=FALSE, na.rm=TRUE, 
+         annotation_colors = list(treatment= 
+                              c("6_amb"="gray65","6_low"=lighten("darkorange2", 0.25),
+                              "10_amb"=lighten("firebrick4", 0.45),
+                              "10_low"="firebrick4",
+                              "3_amb"=lighten("navyblue", 0.45),
+                              "3_low"="navyblue")),
+         scale="row", main = "Differentially expressed genes (DEGs), acidified treatments vs. control", 
+         annotation_col=dds.pH.df[,"treatment", drop=FALSE], fontsize = 8,
+         cutree_rows = 2,  border_color=F)
+```
+
+
+
+
 
 #### Single heatmap with all DEGs among any pH treatment 
 NOTE: There are 4,525 DEGs among pH treatment in the 6C group, but only 2 and 58 among the 3C and 10C groups, respectively. This is visible in the heat map- there are clear differences in expression in the 6_amb (green) and 6_low (yellow) treatments. 
@@ -2192,6 +2761,7 @@ pheatmap(diffex.temp.counts.low, cluster_rows=TRUE, cluster_cols=FALSE,
          annotation_col=dds.temp.df[,"temperature", drop=FALSE], fontsize = 8,
          cutree_rows = 2,  border_color=F)
 ```
+
 
 
 ### Venn Diagrams of DEGs by pairwise contrast
@@ -2487,6 +3057,107 @@ write_delim(x = ldply(DEGs.4David, rbind) %>% t() %>% as.data.frame(), delim = "
 enrich.background %>% write_clip(allow_non_interactive = TRUE)
 ```
 
+
+REDO with Entrez Gene IDs (i.e. NCBI gene IDs)
+
+```{r}
+# BACKGROUND - all genes submitted to DESeq2 analysis
+enrich.background.ncbi <- res.pH.6 %>% as.data.frame() %>% rownames_to_column("gene") %>% left_join(gadmor.gff %>% filter(type=="gene")) %>%
+  dplyr::select(ncbi_id) %>% na.omit() %>% unlist() %>% as.vector()
+
+enrich.Amb.Low.6.ncbi <- degs[2] %>% as.data.frame() %>% rownames_to_column("gene") %>%
+  filter(abs(dplyr::select(., contains("log2FoldChange")))>0.5) %>% #filter for genes with abs(L2FC)>0.5
+  left_join(gadmor.gff %>% filter(type=="gene"))
+
+enrich.3.6.Amb.ncbi <- degs[4] %>% as.data.frame() %>% rownames_to_column("gene") %>%
+  filter(abs(dplyr::select(., contains("log2FoldChange")))>0.5) %>% #filter for genes with abs(L2FC)>0.5
+  left_join(gadmor.gff %>% filter(type=="gene"))
+
+enrich.6.10.Amb.ncbi <- degs[5] %>% as.data.frame() %>% rownames_to_column("gene") %>%
+  filter(abs(dplyr::select(., contains("log2FoldChange")))>0.5) %>% #filter for genes with abs(L2FC)>0.5
+  left_join(gadmor.gff %>% filter(type=="gene"))
+
+enrich.both.3low.6amb.ncbi <- degs[8] %>% as.data.frame() %>% rownames_to_column("gene") %>%
+  filter(abs(dplyr::select(., contains("log2FoldChange")))>0.5) %>% #filter for genes with abs(L2FC)>0.5
+  left_join(gadmor.gff %>% filter(type=="gene"))
+
+enrich.both.10low.6amb.ncbi <- degs[9] %>% as.data.frame() %>% rownames_to_column("gene") %>%
+  filter(abs(dplyr::select(., contains("log2FoldChange")))>0.5) %>% #filter for genes with abs(L2FC)>0.5
+  left_join(gadmor.gff %>% filter(type=="gene"))
+
+DEGs.4David.ncbi <- list(
+
+  "OA_Downregulated" =
+    # enrich.Amb.Low.6 - LFC>0.5 - LOWER IN LOW PH - Downregulated in OA
+    enrich.Amb.Low.6.ncbi %>%
+    filter(dplyr::select(., contains("log2FoldChange"))>0.5) %>%
+    dplyr::select(ncbi_id) %>%  na.omit() %>% unlist() %>% as.vector(),
+
+  "OA_Upregulated" =
+    # enrich.Amb.Low.6 - LFC<0.5 - HIGHER IN LOW PH - Upregulated in OA
+    enrich.Amb.Low.6.ncbi %>%
+    filter(dplyr::select(., contains("log2FoldChange"))<(-0.5)) %>%
+    dplyr::select(ncbi_id) %>%  na.omit() %>% unlist() %>% as.vector(),
+
+  "Cold_Upregulated" =
+    # enrich.3.6.Amb - LFC>0.5 - HIGHER IN 3C - Upregulated in Cold Temperature
+    enrich.3.6.Amb.ncbi %>%
+    filter(dplyr::select(., contains("log2FoldChange"))>0.5) %>%
+    dplyr::select(ncbi_id) %>%  na.omit() %>% unlist() %>% as.vector(),
+
+  "Cold_Downregulated"  =
+    # enrich.3.6.Amb - LFC<0.5 - LOWER IN 3C - Downregulated in Cold Temperature
+    enrich.3.6.Amb.ncbi %>%
+    filter(dplyr::select(., contains("log2FoldChange"))<(-0.5)) %>%
+    dplyr::select(ncbi_id) %>%  na.omit() %>% unlist() %>% as.vector(),
+
+  "Warm_Downregulated" =
+    # enrich.6.10.Amb - LFC>0.5 - LOWER IN 10C - Downregulated in Warm Temperature
+    enrich.6.10.Amb.ncbi %>%
+    filter(dplyr::select(., contains("log2FoldChange"))>0.5) %>%
+    dplyr::select(ncbi_id) %>%  na.omit() %>% unlist() %>% as.vector(),
+
+  "Warm_Upregulated" =
+    # enrich.6.10.Amb - LFC<0.5 - HIGHER IN 10C - Upregulated in Warm Temperature
+    enrich.6.10.Amb.ncbi %>%
+     filter(dplyr::select(., contains("log2FoldChange"))<(-0.5)) %>%
+    dplyr::select(ncbi_id) %>%  na.omit() %>% unlist() %>% as.vector(),
+
+  "Cold-OA_Upregulated" =
+    # enrich.both.3low.6amb - LFC>0.5 - HIGHER IN 3C-LOW PH - Upregulated in Cold+OA
+    enrich.both.3low.6amb.ncbi %>%
+    filter(dplyr::select(., contains("log2FoldChange"))>0.5) %>%
+    dplyr::select(ncbi_id) %>%  na.omit() %>% unlist() %>% as.vector(),
+
+  "Cold-OA_Downregulated" =
+    # enrich.both.3low.6amb - LFC<0.5 - LOWER IN 3C-LOW PH - Downregulated in Cold+OA
+    enrich.both.3low.6amb.ncbi %>%
+    filter(dplyr::select(., contains("log2FoldChange"))<(-0.5)) %>%
+    dplyr::select(ncbi_id) %>%  na.omit() %>% unlist() %>% as.vector(),
+
+  "Warm-OA_Upregualted" =
+    # enrich.both.10low.6amb - lfc<0.5 - HIGHER IN 10C-LOW PH - Upregulated in Warm+OA
+    enrich.both.10low.6amb.ncbi %>%
+    filter(dplyr::select(., contains("log2FoldChange"))<(-0.5)) %>%
+    dplyr::select(ncbi_id) %>%  na.omit() %>% unlist() %>% as.vector(),
+
+  "Warm-OA_Downregulated" =
+    # enrich.both.10low.6amb - lfc>0.5 - LOWER IN 10C-LOW PH - Downregulated in Warm+OA
+    enrich.both.10low.6amb.ncbi %>%
+    filter(dplyr::select(., contains("log2FoldChange"))>0.5) %>%
+    dplyr::select(ncbi_id) %>%  na.omit() %>% unlist() %>% as.vector()
+  )
+
+# Write tab-delimited file with each column containing Uniprot IDs for each set of DEGs
+write_delim(x = ldply(DEGs.4David.ncbi, rbind) %>% t() %>% as.data.frame(), delim = "\t", col_names = F, na="",
+            file = "../results/GO-enrichment/DEGs-4David-ncbi.txt")
+
+# BACKGROUND - all genes submitted to DESeq2 analysis
+enrich.background.ncbi %>% write_clip(allow_non_interactive = TRUE)
+```
+
+
+
 NOTE: outside of R I created a .tab file with the first column containing file names for enrichment results, and second column containing the contrast + which treatment was upregulated (for grouping in R). 
 Example: the following row refers to the file contains enrichment results for genes upregulated in 10C in the contrast 6C vs. 10C at Low pH
 
@@ -2558,12 +3229,13 @@ david %>%
             by = c("stress", "response", "genes", "p_value", "count")) %>%  #re-add data
 #  ungroup() %>% arrange(stress, response, p_value) %>% group_by(stress, response) %>% dplyr::slice(1:15) %>%
   filter(response=="Upregulated") %>% 
+  filter(process%!in%c("DNA integration", "DNA recombination")) %>%
 
-  ungroup() %>% arrange(stress, p_value) %>%
+  ungroup() %>% arrange(stress, desc(fold_enrichment)) %>%
   mutate(process = factor(process, rev(unique(process)), ordered = TRUE)) %>%
 
 ggplot(aes(y = process, x=stress, col=stress)) + 
-  geom_point(alpha=0.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
+  geom_point(alpha=0.65, aes(size=fold_enrichment)) +  #aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
  facet_wrap(~category,scales="free", nrow = 2) +
  scale_color_manual(name="Stressor",
                      values=c("OA"=lighten("darkorange2", 0.25), 
@@ -2597,10 +3269,11 @@ Up-regulated Gene Ontology terms
 # Bubble plot, Upregulated processes
 pdf(file="../results/GO-enrichment/Final-DAVID/Upregulated-GO-bubble.pdf", height = 9, width = 7.5)
 david %>% 
-#  filter(count>=3) %>% 
-  filter(p_value<0.05) %>% filter(count>=3) %>%
+#  filter(fdr<0.2) %>% 
+  filter(p_value<0.01) %>% filter(count>=3) %>%
   filter(category=="GOTERM_BP_DIRECT") %>% 
 #  filter(category=="UP_KW_BIOLOGICAL_PROCESS") %>%
+  filter(process %!in% c("DNA integration", "DNA recombination")) %>%
 
   group_by(stress, response, genes, count) %>%
   dplyr::summarise(p_value=min(p_value)) %>% distinct() %>% ungroup() %>% #for rows with duplicate grouping variabes, select one with lowest p-value
@@ -2623,7 +3296,7 @@ ggplot(aes(y = process, x=stress, col=stress)) +
                               "Cold"=lighten("navyblue", 0.45),
                               "Cold-OA"="navyblue"),
              guide = guide_legend(override.aes = list(size=4))) +
-  scale_size("-Log10 P-value", range = c(2,8), #breaks = c(2, 5, 10),
+  scale_size("-Log10 P-value", range = c(2,8), breaks = c(2,4,6,8),
              guide = guide_legend(override.aes = list(col="gray50"))) +
   scale_x_discrete(drop=T) + #Do drop empty factors for temperature contrasts
   theme_cleveland() + 
@@ -2638,7 +3311,7 @@ ggplot(aes(y = process, x=stress, col=stress)) +
         legend.title = element_text(size=6),
         strip.background = element_blank(),
         strip.text.x = element_blank()) +
-  ggtitle("Upregulated Biological Processes\n(GO terms)")
+  ggtitle("Lower gene expression")
 ```
 
 Down-regulated Uniprot Keywords
@@ -2661,7 +3334,7 @@ david %>%
   filter(response=="Downregulated") %>% 
 
   ungroup() %>% arrange(stress, p_value) %>%
-  mutate(process = factor(process, rev(unique(process)), ordered = TRUE)) %>%
+  mutate(process = factor(process, rev(unique(process)), ordered = TRUE)) %>% View()
 
 ggplot(aes(y = process, x=stress, col=stress)) + 
   geom_point(alpha=0.65, aes(size=-log10(p_value))) + #size=count,  alpha=p_value, 
@@ -2697,9 +3370,9 @@ Down-regulated Gene Ontology terms
 # Bubble plot, downregulated processes
 pdf(file="../results/GO-enrichment/Final-DAVID/Downregulated-GO-bubble.pdf", height = 4, width = 5.75)
 david %>% 
-#  filter(count>=3) %>% 
+  filter(count>=3) %>% 
   filter(p_value<0.05) %>%
-  filter(category=="GOTERM_BP_DIRECT") %>% 
+  filter(category=="GOTERM_BP_DIRECT") %>%
 #  filter(category=="UP_KW_BIOLOGICAL_PROCESS") %>%
 
   group_by(stress, response, genes, count) %>%
@@ -3660,7 +4333,7 @@ enriched.kw.degs.upregulated <- bind_rows(file_list, .id = "gene_set") %>% clean
   tidyr::complete(contrast, upregulated, category) %>% # add rows for gene_sets that are missing from dataframe
   mutate(upregulated=factor(upregulated, levels = c("3C", "6C", "10C", "Ambient-pH", "Low-pH"), ordered = T)) %>%
 
-  # remove upregulated treatment that doesn't exist in given contrast
+    # remove upregulated treatment that doesn't exist in given contrast
   filter(!( (contrast=="AmbvsLow.3C" | contrast=="AmbvsLow.6C"| contrast=="AmbvsLow.10C") & (upregulated=="3C" | upregulated=="6C" | upregulated=="10C"))) %>%
   filter(!( (contrast=="3vs6.Amb-pH" | contrast=="3vs10.Amb-pH" | contrast=="6vs10.Amb-pH" | contrast=="3vs6.Low-pH" | contrast=="3vs10.Low-pH" | contrast=="6vs10.Low-pH") & (upregulated=="Ambient-pH" | upregulated=="Low-pH"))) %>%
   filter(!( (contrast=="3vs6.Amb-pH" | contrast=="3vs6.Low-pH") & upregulated=="10C")) %>%
@@ -3669,6 +4342,7 @@ enriched.kw.degs.upregulated <- bind_rows(file_list, .id = "gene_set") %>% clean
   
   separate(contrast, sep="\\.", into = c("comparison", "background"), remove = FALSE) %>% select(-comparison) %>%
   mutate(background=factor(background, ordered = T, levels=c("Low-pH", "Amb-pH", "3C", "6C", "10C")))
+
 ```
 
 #### Enriched Uniprot Keyword Bubble Plot - Ambient vs Low pH @ 6C 

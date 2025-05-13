@@ -1,0 +1,24 @@
+GOterm,over_represented_pvalue,under_represented_pvalue,numDEInCat,numInCat,term,ontology,fdr_over,fdr_under,treatment
+GO:0032687,1.3238402525541666e-8,0.9999999988369049,12,105,negative regulation of interferon-alpha production,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:0007249,1.5560940161315023e-8,0.9999999984121682,13,132,canonical NF-kappaB signal transduction,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:1900226,1.7617566899525035e-8,0.9999999983997024,12,108,negative regulation of NLRP3 inflammasome complex assembly,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:0032688,2.8310877365654447e-8,0.999999997304881,12,113,negative regulation of interferon-beta production,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:0050680,4.82143840153204e-8,0.9999999945455107,13,144,negative regulation of epithelial cell proliferation,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:0045824,4.8490908827715756e-8,0.999999995131097,12,119,negative regulation of innate immune response,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:1900016,5.352007198432217e-8,0.999999994573634,12,120,negative regulation of cytokine production involved in inflammatory response,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:1901223,5.818920825672483e-8,0.9999999940510065,12,121,negative regulation of non-canonical NF-kappaB signal transduction,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:0032720,5.949572675774008e-8,0.9999999931506695,13,141,negative regulation of tumor necrosis factor production,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:0032715,6.43431204709186e-8,0.9999999933594237,12,121,negative regulation of interleukin-6 production,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:0048147,6.827614579608302e-8,0.9999999929109045,12,122,negative regulation of fibroblast proliferation,BP,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:0042110,9.254784397264317e-8,0.9999999900903369,12,127,T cell activation,BP,1.0064933985270993e-4,1,Cold-OA_Downregulated
+GO:0032088,1.1242826505549076e-7,0.9999999877206847,12,129,negative regulation of NF-kappaB transcription factor activity,BP,1.1353648652532345e-4,1,Cold-OA_Downregulated
+GO:0051898,1.5767140033642492e-7,0.9999999821837406,12,134,negative regulation of phosphatidylinositol 3-kinase/protein kinase B signal transduction,BP,1.4861055053042504e-4,1,Cold-OA_Downregulated
+GO:0050728,1.3407803120646012e-6,0.9999998121683472,12,162,negative regulation of inflammatory response,BP,0.0011150560030570194,1,Cold-OA_Downregulated
+GO:0043124,5.364427723124974e-6,0.9999991344506644,12,179,negative regulation of canonical NF-kappaB signal transduction,BP,0.0037921139574770444,1,Cold-OA_Downregulated
+GO:0051603,2.3570137504170152e-5,0.9999988767115064,5,31,proteolysis involved in protein catabolic process,BP,0.015147027456088983,1,Cold-OA_Downregulated
+GO:0035556,1.3462963386641605e-4,0.9999670610776527,13,321,intracellular signal transduction,BP,0.08275625059145174,1,Cold-OA_Downregulated
+GO:0034451,3.447687139891271e-7,0.9999999578258305,12,148,centriolar satellite,CC,3.0464625489864245e-4,1,Cold-OA_Downregulated
+GO:0043186,3.563016318701796e-6,0.999999951057394,4,10,P granule,CC,0.002798551372989222,1,Cold-OA_Downregulated
+GO:0043231,1.613207563537855e-5,0.9999965863503704,14,294,intracellular membrane-bounded organelle,CC,0.010860727872999139,1,Cold-OA_Downregulated
+GO:0036312,3.2737276075795214e-8,0.9999999968393221,12,114,phosphatidylinositol 3-kinase regulatory subunit binding,MF,8.044067910541849e-5,1,Cold-OA_Downregulated
+GO:0048030,4.119420322765933e-6,1,3,3,disaccharide binding,MF,0.003065282343329724,1,Cold-OA_Downregulated

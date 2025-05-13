@@ -1,0 +1,27 @@
+GOterm,over_represented_pvalue,under_represented_pvalue,numDEInCat,numInCat,term,ontology,fdr_over,fdr_under,treatment
+GO:0002088,4.180501688968583e-17,1,24,58,lens development in camera-type eye,BP,2.955196643931891e-13,1,Warm_Upregulated
+GO:0032687,6.767970102243839e-16,1,29,105,negative regulation of interferon-alpha production,BP,2.682241708776949e-12,1,Warm_Upregulated
+GO:1900226,1.3063573942571195e-15,1,29,108,negative regulation of NLRP3 inflammasome complex assembly,BP,3.693856168001431e-12,1,Warm_Upregulated
+GO:0007249,3.1722813217070004e-15,1,31,132,canonical NF-kappaB signal transduction,BP,7.47495222104893e-12,1,Warm_Upregulated
+GO:0032688,3.994115028628106e-15,1,29,113,negative regulation of interferon-beta production,BP,8.066971182106308e-12,1,Warm_Upregulated
+GO:0032715,5.148175207993915e-15,1,30,121,negative regulation of interleukin-6 production,BP,9.098112636327246e-12,1,Warm_Upregulated
+GO:0048147,6.5898484986517135e-15,1,30,122,negative regulation of fibroblast proliferation,BP,1.0351919785993104e-11,1,Warm_Upregulated
+GO:0042110,8.314944310862769e-15,1,30,127,T cell activation,BP,1.1755668266697782e-11,1,Warm_Upregulated
+GO:0045824,1.4037961169235252e-14,1,29,119,negative regulation of innate immune response,BP,1.8042608637331634e-11,1,Warm_Upregulated
+GO:1900016,1.805169135176444e-14,1,29,120,negative regulation of cytokine production involved in inflammatory response,BP,2.1267901027603807e-11,1,Warm_Upregulated
+GO:1901223,2.179860534746906e-14,1,29,121,negative regulation of non-canonical NF-kappaB signal transduction,BP,2.370682172327058e-11,1,Warm_Upregulated
+GO:0051898,2.909393853410048e-14,1,30,134,negative regulation of phosphatidylinositol 3-kinase/protein kinase B signal transduction,BP,2.9380721642508045e-11,1,Warm_Upregulated
+GO:0050680,5.5156173948375184e-14,1,31,144,negative regulation of epithelial cell proliferation,BP,5.1986532485475223e-11,1,Warm_Upregulated
+GO:0032088,1.0543670547520353e-13,1,29,129,negative regulation of NF-kappaB transcription factor activity,BP,9.316650887552672e-11,1,Warm_Upregulated
+GO:0032720,1.2355752271264654e-12,1,31,141,negative regulation of tumor necrosis factor production,BP,9.704756978396648e-10,1,Warm_Upregulated
+GO:0007601,1.3201088250579685e-12,1,32,174,visual perception,BP,9.822999246668189e-10,1,Warm_Upregulated
+GO:0050728,1.4574276718501213e-12,1,31,162,negative regulation of inflammatory response,BP,1.0302556212308508e-9,1,Warm_Upregulated
+GO:0043124,3.8758417769048564e-11,1,33,179,negative regulation of canonical NF-kappaB signal transduction,BP,2.6093643353276598e-8,1,Warm_Upregulated
+GO:0035556,3.4531344964022495e-8,0.9999999903691421,34,321,intracellular signal transduction,BP,2.1226267613102173e-5,1,Warm_Upregulated
+GO:0007156,6.963382773533432e-5,0.9999770516210517,22,131,homophilic cell adhesion via plasma membrane adhesion molecules,BP,0.03786473294315987,1,Warm_Upregulated
+GO:0034451,7.520558499230191e-13,1,29,148,centriolar satellite,CC,6.254450356595085e-10,1,Warm_Upregulated
+GO:0043231,3.3624988909077443e-8,0.9999999908248036,33,294,intracellular membrane-bounded organelle,CC,2.1226267613102173e-5,1,Warm_Upregulated
+GO:0048471,8.69059461366765e-6,0.999996427823463,39,497,perinuclear region of cytoplasm,CC,0.005119484443668052,1,Warm_Upregulated
+GO:0070701,6.056805559347514e-5,1,3,3,mucus layer,CC,0.03425244679922206,1,Warm_Upregulated
+GO:0005212,1.1452117121377209e-21,1,24,42,structural constituent of eye lens,MF,1.6191003186203098e-17,1,Warm_Upregulated
+GO:0036312,7.588744401688921e-16,1,30,114,phosphatidylinositol 3-kinase regulatory subunit binding,MF,2.682241708776949e-12,1,Warm_Upregulated

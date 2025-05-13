@@ -11,6 +11,7 @@
 # filtering for quality and length.
 # It has been slightly adapted from code written by Giles Goetz
 
+module load bio/fastqc/0.11.9
 source /home/lspencer/venv/bin/activate  #activate env with cutadapt
 
 IN=/share/afsc/pcod-2022/usftp21.novogene.com/01.RawData

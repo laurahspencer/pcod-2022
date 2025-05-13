@@ -1,0 +1,2 @@
+GOterm,over_represented_pvalue,under_represented_pvalue,numDEInCat,numInCat,term,ontology,fdr_over,fdr_under,treatment
+GO:0140662,1.2072071668109117e-8,0.9999999998007277,6,23,ATP-dependent protein folding chaperone,MF,1.706749492437267e-4,1,Cold_Upregulated

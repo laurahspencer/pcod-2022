@@ -1,0 +1,28 @@
+GOterm,over_represented_pvalue,under_represented_pvalue,numDEInCat,numInCat,term,ontology,fdr_over,fdr_under,treatment
+GO:0032687,7.020306439957758e-18,1,28,105,negative regulation of interferon-alpha production,BP,9.28022689177747e-14,1,Warm-OA_Upregulated
+GO:1900226,1.395531695278357e-17,1,28,108,negative regulation of NLRP3 inflammasome complex assembly,BP,9.28022689177747e-14,1,Warm-OA_Upregulated
+GO:1900016,2.133023241096317e-17,1,29,120,negative regulation of cytokine production involved in inflammatory response,BP,9.28022689177747e-14,1,Warm-OA_Upregulated
+GO:1901223,2.6256123615157647e-17,1,29,121,negative regulation of non-canonical NF-kappaB signal transduction,BP,9.28022689177747e-14,1,Warm-OA_Upregulated
+GO:0032688,4.41449392536859e-17,1,28,113,negative regulation of interferon-beta production,BP,1.2482423023372225e-13,1,Warm-OA_Upregulated
+GO:0045824,1.6169018364735005e-16,1,28,119,negative regulation of innate immune response,BP,3.265679737723193e-13,1,Warm-OA_Upregulated
+GO:0032715,3.7448138867642365e-16,1,28,121,negative regulation of interleukin-6 production,BP,6.618022341384097e-13,1,Warm-OA_Upregulated
+GO:0048147,4.503608909745524e-16,1,28,122,negative regulation of fibroblast proliferation,BP,7.074669196220246e-13,1,Warm-OA_Upregulated
+GO:0042110,7.452016272522662e-16,1,28,127,T cell activation,BP,1.0535660606092538e-12,1,Warm-OA_Upregulated
+GO:0032088,1.2507635899907466e-15,1,28,129,negative regulation of NF-kappaB transcription factor activity,BP,1.6075723304808342e-12,1,Warm-OA_Upregulated
+GO:0007249,2.001999423548311e-15,1,28,132,canonical NF-kappaB signal transduction,BP,2.358688987510502e-12,1,Warm-OA_Upregulated
+GO:0051898,2.6125541739975856e-15,1,28,134,negative regulation of phosphatidylinositol 3-kinase/protein kinase B signal transduction,BP,2.8412531470752203e-12,1,Warm-OA_Upregulated
+GO:0050680,3.372043006844103e-15,1,29,144,negative regulation of epithelial cell proliferation,BP,3.405281716482995e-12,1,Warm-OA_Upregulated
+GO:0043124,6.686946437740427e-15,1,33,179,negative regulation of canonical NF-kappaB signal transduction,BP,6.302669915784944e-12,1,Warm-OA_Upregulated
+GO:0032720,1.3037030259747132e-13,1,28,141,negative regulation of tumor necrosis factor production,BP,1.0842207871312056e-10,1,Warm-OA_Upregulated
+GO:0050728,5.206353536878724e-13,1,28,162,negative regulation of inflammatory response,BP,4.0893014613550777e-10,1,Warm-OA_Upregulated
+GO:0035556,4.611842159118502e-12,1,36,321,intracellular signal transduction,BP,3.4316960234535458e-9,1,Warm-OA_Upregulated
+GO:0007601,2.721725690523515e-7,0.9999999392074136,21,174,visual perception,BP,1.8323694196486405e-4,1,Warm-OA_Upregulated
+GO:0007156,1.4946345082810989e-5,0.999996150064647,18,131,homophilic cell adhesion via plasma membrane adhesion molecules,BP,0.00845245707123127,1,Warm-OA_Upregulated
+GO:0030212,1.695932442149054e-4,0.9999935843751706,4,10,hyaluronan metabolic process,BP,0.08880404765593826,1,Warm-OA_Upregulated
+GO:0034451,1.3366757530612827e-14,1,28,148,centriolar satellite,CC,1.1811201122987759e-11,1,Warm-OA_Upregulated
+GO:0043231,7.119169999027599e-9,0.9999999985611376,30,294,intracellular membrane-bounded organelle,CC,5.03254127231261e-6,1,Warm-OA_Upregulated
+GO:0048471,7.18693827901625e-7,0.9999997489785739,36,497,perinuclear region of cytoplasm,CC,4.618587881305988e-4,1,Warm-OA_Upregulated
+GO:0036312,6.545230707340039e-17,1,28,114,phosphatidylinositol 3-kinase regulatory subunit binding,MF,1.5422745290062247e-13,1,Warm-OA_Upregulated
+GO:0004867,1.31520395031262e-6,0.9999998854605011,9,40,serine-type endopeptidase inhibitor activity,MF,8.084501499791226e-4,1,Warm-OA_Upregulated
+GO:0005509,1.098948852853123e-5,0.9999957335715282,34,476,calcium ion binding,MF,0.006473724534015605,1,Warm-OA_Upregulated
+GO:0005212,1.0663798480827303e-4,0.9999855050310696,8,42,structural constituent of eye lens,MF,0.05798645496997554,1,Warm-OA_Upregulated

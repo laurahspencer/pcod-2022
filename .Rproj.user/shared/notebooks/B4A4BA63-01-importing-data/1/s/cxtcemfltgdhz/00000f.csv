@@ -1,3 +1,0 @@
-"0","# cor(multiqc.stats %>% mutate(Tank=as.numeric(Tank)) %>% dplyr::select_if(is.numeric) %>% "
-"0","#       dplyr::select(-Crab, -crab, -initial_volume, -volume_used_at_start_of_library_prep, -water_to_add_to_bring_to_50u_l, "
-"0","#                     -diluted_concentration, -pcr_cycles, -volume_used_in_qc), use=""complete.obs"") %>% corrplot::corrplot(tl.cex=.75)"

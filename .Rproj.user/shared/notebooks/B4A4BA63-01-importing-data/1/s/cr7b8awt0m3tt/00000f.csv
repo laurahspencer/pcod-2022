@@ -1,5 +1,0 @@
-"0","# multiqc.stats <- read.delim(file=""../results/fastqc/multiqc_data_trimmed-v2/multiqc_general_stats.txt"", sep = ""\t"") "
-"0","# colnames(multiqc.stats) <- gsub(""FastQC_mqc.generalstats.fastqc."", """", colnames(multiqc.stats)) "
-"0","# multiqc.stats <- multiqc.stats %>% "
-"0","#   mutate(total_unique = total_sequences*(100-percent_duplicates)/100) %>%"
-"0","#   left_join(sample.info)"

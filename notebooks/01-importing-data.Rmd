@@ -72,6 +72,14 @@ save(sample.info, file="../data/sample.info")
 ### Import library stats from MultiQC and from library prep
 
 ```{r}
+  ggplotly(
+   ggplot(multiqc.stats %>% mutate(M_reads=total_reads/1000000)) + 
+     geom_bar(aes(x=sample, y=M_reads), stat = "identity") + ggtitle("Total reads (M) by sample") + 
+              theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())) 
+
+```
+
+```{r}
 # multiqc.stats <- read.delim(file="../results/fastqc/multiqc_data_trimmed-v2/multiqc_general_stats.txt", sep = "\t") 
 # colnames(multiqc.stats) <- gsub("FastQC_mqc.generalstats.fastqc.", "", colnames(multiqc.stats)) 
 # multiqc.stats <- multiqc.stats %>% 
@@ -178,6 +186,8 @@ sample.info <- sample.info[ -which(sample.info$vial_label %in% remove.list), ]
 save(sample.info, file="../data/sample.info")
 
 nrow(sample.info) == ncol(counts) #should = TRUE
+
+counts %>% rownames_to_column("gene") %>% View()
 ```
 
 ## OPTIONAL: FILTER WHOLE SCAFFOLDS 
@@ -263,7 +273,7 @@ read_delim(file = "../references/genomic.gff", delim = "\t", col_names = F, skip
   select(X1, X4, X5, X9) %>%
   mutate(X4=X4-1) %>% #convert from 1-based to 0-based by subtracting 1 from the start position 
   mutate(X9=str_remove(X9, "ID=")) %>%
-  select(X1,X4,X5,X9) %>%
+  select(X1,X4,X5,X9) %>% View()
   write.table(., "../references/gadMor3.0_genes.bed", sep = "\t",
               col.names = F, row.names = F, quote = F)
 ```
@@ -327,8 +337,8 @@ gadMor.blast %>% ungroup() %>% dplyr::select(spid) %>% distinct() %>%
   na.omit() %>% unlist() %>% as.vector() %>% write_clip()
 
 # Add GO terms to Uniprot annotation object
-gadMor.blast.GO <- left_join(gadMor.blast, read_delim(file = "../references/gadMor_genes_GO.tsv", 
-                                                      delim = "\t") %>% clean_names(),
+gadMor.blast.GO <- left_join(gadMor.blast, read_delim(file = "../references/gadMor_genes_GO_UPKW.tsv", 
+                                                      delim = "\t") %>% clean_names() %>% dplyr::rename("length_uniprot"="length"),
                              by = c("spid"="entry")) %>% ungroup()
 
 
@@ -379,3 +389,26 @@ counts.annot.gadmor %>% head(n=100) %>% select(gene_gadmor,
 gadMor.blast.GO %>% View()
 ```
 
+Use Entrez IDs from Atlantic cod genome 
+
+```{r}
+require(ape)
+require(tidyverse)
+gadmor.gff <- read.gff(file = "../references/genomic.gff", GFF3 = TRUE) %>%
+  mutate(id=gsub("ID=|;|gene-", "", str_extract(attributes, "ID=(.*?);")),
+       ncbi_id=gsub("Dbxref=GeneID:|;", "", str_extract(attributes, "Dbxref=GeneID:(.*?);")),
+       name=gsub("Name=|;", "", str_extract(attributes, "Name=(.*?);")),
+       parent=gsub("Parent=|;", "", str_extract(attributes, "Parent=(.*?);")),
+       description=gsub("description=|;", "", str_extract(attributes, "description=(.*?);")),
+       gene=gsub("gene=|;", "", str_extract(attributes, "gene=(.*?);")),
+       biotype=gsub("biotype=|;", "", str_extract(attributes, "biotype=(.*?);")),
+       alias=gsub("Alias=|;", "", str_extract(attributes, "Alias=(.*?);")),
+       AED=gsub("AED=|;", "", str_extract(attributes, "AED=(.*?);")),
+       eAED=gsub("eAED=|;", "", str_extract(attributes, "eAED=(.*?);")),
+       note=gsub("Note=|;", "", str_extract(attributes, "Note=(.*?);")),
+       ontology_term=gsub("Ontology_term=|;", "", str_extract(attributes, "Ontology_term=(.*?);")),
+       spid=gsub("SPID=|;", "", str_extract(attributes, "SPID=(.*?);")))
+
+gadmor.gff %>% filter(type=="gene") %>% select(ncbi_id) %>% distinct()
+
+```

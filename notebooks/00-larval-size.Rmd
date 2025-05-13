@@ -58,9 +58,13 @@ pcod <- read_csv("../data/size_data_raw.csv") %>%
   by=c("date_collected", "tank", "photo_number"))
 
 #pcod %>% View() #write_clip()
-
-pcod
 ```
+```{r}
+pcod %>% 
+  dplyr::select()
+```
+
+
 
 ```{r}
 # Define x limits 
@@ -161,8 +165,9 @@ TukeyHSD(aov(value_mm ~ temperature*p_h, pcod[pcod$measurement=="Height",]))
 ```{r}
 pcod %>% 
   group_by(temperature, p_h, measurement) %>%
-  summarise(mean=mean(value_mm, na.rm = T), sd=sd(value_mm, na.rm = T), min=min(value_mm), max=max(value_mm)) %>% 
-  arrange(measurement, temperature, p_h)
+  summarise(mean=mean(value_mm, na.rm = T), sd=sd(value_mm, na.rm = T), 
+            se=std.error(value_mm, na.rm = T), min=min(value_mm), max=max(value_mm)) %>% 
+  arrange(measurement, temperature, p_h) %>% filter(measurement=="Length")
 
 write_csv(pcod, file="../data/size_data_annotated.csv", col_names = TRUE)
 
@@ -204,7 +209,8 @@ summary(aov(ratio ~ temperature*p_h, ratio.rnaseq)) #no effect
 # Length summary info 
 ratio.rnaseq %>% ungroup() %>%
   group_by(temperature, p_h) %>%
-  dplyr::summarise(mean=mean(Length, na.rm = T), sd=sd(Length, na.rm = T), min=min(Length), max=max(Length)) %>% 
+  dplyr::summarise(mean=mean(Length, na.rm = T), sd=sd(Length, na.rm = T), 
+                   se=std.error(Length, na.rm = T), min=min(Length), max=max(Length)) %>% 
   arrange(temperature, p_h)
 
 
@@ -258,6 +264,18 @@ length.rnaseq %>%
                               "3:low"="Cold Temperature + High pCO2"))
 #)
 ```
+Get information for SRA submission
+
+```{r}
+ratio.rnaseq %>% select(vial, date_collected, temperature, p_h, Length, Height) %>% arrange(vial) %>%
+#  select(date_collected) %>% 
+  mutate(p_h=case_when("p_h"=="amb" ~ "~8.0", TRUE ~ "~7.5")) %>%
+  mutate(metadata=paste("experimental temperature: ", temperature, "C; experimental pH: ", p_h,
+                        "; larval standard length: ", Length, "; larval myotome height: ", Height, sep="")) %>%
+  select(vial, metadata)# %>%
+    write_clip()
+```
+
 
 # Controlling for size-associated developmental differences in RNASeq data 
 
@@ -1375,4 +1393,3 @@ ggplot(aes(y = process, x=stress, col=stress)) +
         strip.text.x = element_blank()) +
   ggtitle("Downregulated Biological Processes\n(GO terms)")
 ```
-
