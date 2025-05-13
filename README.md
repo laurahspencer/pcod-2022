@@ -1,7 +1,7 @@
 # Molecular Responses of Larval Pacific Cod to Climate Stressors
 
 **Project repository for the companion transcriptomic study to Slesinger et al. (2024):**  
-*Spencer et al. (2024) - Molecular indicators of warming and other climate stressors in larval Pacific cod*  
+*Spencer et al. (2025) - Molecular indicators of warming and other climate stressors in larval Pacific cod*  
 _Accepted in Canadian Journal of Fisheries and Aquatic Sciences_
 
 ## Summary
