@@ -27,11 +27,11 @@ These results indicate that warming may directly impair larval physiology via me
 
 ## Repository Contents
 
-- `data/`: Links to metadata, multiqc report
+- `data/`: Links to metadata, multiqc reports
 - `notebooks/`: RMarkdown notebooks for differential expression analysis 
 - `references/`: GadMor annotation files and reference functions 
 - `results/`: Figures, tables, slidedecks
-- `scripts/`: SLURM scripts for RNASeq data processing and alignment
+- `scripts/`: SLURM scripts for RNASeq data processing, alignment, and gene counts
 
 ## Data Availability
 
